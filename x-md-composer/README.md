@@ -108,6 +108,9 @@ Article pack:
 - `manifest.md`: stats, file list, image list, and code-block list.
 - `assets/code/*.txt`: original fenced code block text.
 - `assets/code/*.png`: browser-rendered PNG screenshot for each code block.
+- `assets/tables/*.csv`: extracted Markdown tables.
+- `assets/tables/*.txt`: readable table text.
+- `assets/tables/*.png`: browser-rendered PNG screenshot for each table.
 - `assets/images/*`: local attachments or fetched image copies when available.
 - `assets/images/*.url.txt`: original image URL when the remote site blocks browser fetch.
 
@@ -141,6 +144,7 @@ References checked on 2026-05-06:
 - Article body replaces Markdown images and fenced code blocks with placeholders because X's official editor generally expects images and screenshots to be uploaded as media.
 - Article image assets are listed separately for URL copy, image copy, opening, or pack download.
 - Article code blocks are listed separately and can be copied as text or rendered as PNG screenshots in the web app.
+- Article tables are listed separately and can be copied as text, copied as CSV, or rendered as PNG screenshots.
 - Article plain text strips Markdown markers.
 - Thread mode turns Markdown links into `label: URL`.
 - Thread posts are split by manual breaks, paragraphs, sentences, then characters.

@@ -180,7 +180,9 @@ export function prepareOfficialArticle(markdown) {
   let text = prepareArticleMarkdown(markdown);
   const codeBlocks = [];
   const images = [];
+  const tables = [];
   const imageLabels = new Map();
+  const tableLabels = new Map();
 
   text = replaceFencedCodeBlocks(text, ({ code, meta }) => {
     const lang = String(meta ?? "").trim().split(/\s+/)[0] || "";
@@ -197,6 +199,22 @@ export function prepareOfficialArticle(markdown) {
       suggestedFilename: `${safeLabel}.${codeExtensionForLanguage(lang)}`,
     });
     return `\n[代码块 ${index}${lang ? `: ${lang}` : ""}]\n`;
+  });
+
+  text = replaceMarkdownTables(text, ({ headers, rows, alignments, raw }) => {
+    const index = tables.length + 1;
+    const label = headers.filter(Boolean).slice(0, 2).join(" ") || `table ${index}`;
+    const safeLabel = uniqueAssetLabel(makeSafeAssetLabel(label, `table-${index}`), tableLabels);
+    tables.push({
+      alignments,
+      headers,
+      index,
+      raw,
+      rows,
+      safeLabel,
+      suggestedFilename: `${safeLabel}.csv`,
+    });
+    return `\n[表格 ${index}: ${placeholderLabel(label, `表格 ${index}`)}]\n`;
   });
 
   text = replaceMarkdownImages(text, ({ alt, destination, title }) => {
@@ -231,6 +249,7 @@ export function prepareOfficialArticle(markdown) {
     assets: {
       codeBlocks,
       images,
+      tables,
     },
   };
 }
@@ -413,6 +432,106 @@ function replaceFencedCodeBlocks(text, replacer) {
   }
 
   return result + source.slice(cursor);
+}
+
+function replaceMarkdownTables(text, replacer) {
+  const lines = String(text ?? "").split("\n");
+  const output = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const headers = parseMarkdownTableRow(lines[index]);
+    const separator = parseMarkdownTableSeparator(lines[index + 1]);
+    if (!headers || !separator || headers.length !== separator.length) {
+      output.push(lines[index]);
+      continue;
+    }
+
+    const rows = [];
+    const raw = [lines[index], lines[index + 1]];
+    let cursor = index + 2;
+
+    while (cursor < lines.length) {
+      const row = parseMarkdownTableRow(lines[cursor]);
+      if (!row || row.length === 0) break;
+      rows.push(padTableRow(row, headers.length));
+      raw.push(lines[cursor]);
+      cursor += 1;
+    }
+
+    output.push(
+      replacer({
+        alignments: separator,
+        headers: padTableRow(headers, separator.length),
+        raw: raw.join("\n"),
+        rows,
+      }),
+    );
+    index = cursor - 1;
+  }
+
+  return output.join("\n");
+}
+
+function parseMarkdownTableRow(line) {
+  const source = String(line ?? "").trim();
+  if (!source || !source.includes("|")) return null;
+  let value = source;
+  if (value.startsWith("|")) value = value.slice(1);
+  if (value.endsWith("|")) value = value.slice(0, -1);
+  const cells = splitMarkdownTableCells(value).map((cell) => unescapeMarkdown(cell.trim()));
+  return cells.some(Boolean) ? cells : null;
+}
+
+function parseMarkdownTableSeparator(line) {
+  const cells = parseMarkdownTableRow(line);
+  if (!cells) return null;
+  const alignments = [];
+  for (const cell of cells) {
+    const value = cell.trim();
+    if (!/^:?-{3,}:?$/.test(value)) return null;
+    if (value.startsWith(":") && value.endsWith(":")) {
+      alignments.push("center");
+    } else if (value.endsWith(":")) {
+      alignments.push("right");
+    } else {
+      alignments.push("left");
+    }
+  }
+  return alignments;
+}
+
+function splitMarkdownTableCells(value) {
+  const cells = [];
+  let current = "";
+  let escaped = false;
+
+  for (const char of String(value ?? "")) {
+    if (escaped) {
+      current += char;
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      current += char;
+      escaped = true;
+      continue;
+    }
+    if (char === "|") {
+      cells.push(current);
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  cells.push(current);
+  return cells;
+}
+
+function padTableRow(row, length) {
+  const cells = row.slice(0, length);
+  while (cells.length < length) cells.push("");
+  return cells;
 }
 
 function replaceMarkdownImages(text, replacer) {

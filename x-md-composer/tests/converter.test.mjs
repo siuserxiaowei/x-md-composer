@@ -88,6 +88,23 @@ tags: [x, article]
 assert.equal(articleWithMeta.meta.title, "Article From Frontmatter");
 assert.deepEqual(articleWithMeta.meta.tags, ["x", "article"]);
 
+const articleWithTable = convertLongform(`# Table Article
+
+| Channel | Format | Safe on X |
+| :--- | :---: | ---: |
+| Article | Longform | Yes |
+| Thread | Posts | Yes |
+`);
+
+assert.equal(articleWithTable.assets.tables.length, 1);
+assert.equal(articleWithTable.assets.tables[0].headers[0], "Channel");
+assert.deepEqual(articleWithTable.assets.tables[0].alignments, ["left", "center", "right"]);
+assert.equal(articleWithTable.assets.tables[0].rows[1][1], "Posts");
+assert.equal(articleWithTable.assets.tables[0].safeLabel, "channel-format");
+assert.equal(articleWithTable.assets.tables[0].suggestedFilename, "channel-format.csv");
+assert.equal(articleWithTable.plain.includes("[表格 1: Channel Format]"), true);
+assert.equal(articleWithTable.html.includes("<table"), false);
+
 const articleWithBreakExample = convertLongform(`Code sample:
 
 \`\`\`markdown

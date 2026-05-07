@@ -32,6 +32,14 @@ const format = "rich copy for X Articles";
 console.log(format);
 \`\`\`
 
+## 一个表格
+
+| 发布内容 | 推荐处理 | 备注 |
+| --- | --- | --- |
+| 图片 | 作为素材上传 | ZIP 会保留文件或 URL |
+| 代码 | 生成截图 | 同时保留源码文本 |
+| 表格 | 生成 CSV 和截图 | 正文里保留占位 |
+
 <!-- tweet -->
 
 只有切 Thread 的时候，这个注释才会被当成手动断点。长文模式会直接忽略它。
@@ -82,6 +90,7 @@ const I18N = {
     paragraphs: "{count} 段",
     imageCount: "{count} 图",
     codeCount: "{count} 代码",
+    tableCount: "{count} 表格",
     readTime: "约 {count} 分钟",
     posts: "{count} 条",
     longest: "最长 {longest}/{max}",
@@ -111,7 +120,7 @@ const I18N = {
     title: "标题",
     titleMissing: "建议用 # 标题或 frontmatter title",
     assets: "素材",
-    assetsReady: "{images} 图，{codes} 代码，{local} 本地",
+    assetsReady: "{images} 图，{codes} 代码，{tables} 表格，{local} 本地",
     noAssets: "无额外素材",
     pack: "发布包",
     articlePackReady: "TXT / HTML / ZIP 已可生成",
@@ -130,6 +139,19 @@ const I18N = {
     assetItems: "{count} 项",
     images: "图片",
     codeScreenshots: "代码截图",
+    tables: "表格",
+    table: "表格 {index}",
+    tablePreview: "表格预览",
+    copyTableText: "复制表格文本",
+    copyCsv: "复制 CSV",
+    copyTableImage: "复制表格截图",
+    downloadCsv: "下载 CSV",
+    downloadTableImage: "下载截图",
+    copiedTableText: "已复制表格文本",
+    copiedCsv: "已复制 CSV",
+    copiedTableImage: "已复制表格截图",
+    tableImageDownloaded: "表格截图已下载",
+    tableImageUnavailableDownloaded: "表格截图复制不可用，已下载 PNG",
     localImage: "本地图片",
     dropImage: "拖入本地图片",
     chooseOrDropImage: "选择或拖放本地图片",
@@ -219,6 +241,7 @@ const I18N = {
     paragraphs: "{count} paragraphs",
     imageCount: "{count} images",
     codeCount: "{count} code",
+    tableCount: "{count} tables",
     readTime: "About {count} min",
     posts: "{count} posts",
     longest: "Longest {longest}/{max}",
@@ -248,7 +271,7 @@ const I18N = {
     title: "Title",
     titleMissing: "Use a # heading or frontmatter title",
     assets: "Assets",
-    assetsReady: "{images} images, {codes} code, {local} local",
+    assetsReady: "{images} images, {codes} code, {tables} tables, {local} local",
     noAssets: "No extra assets",
     pack: "Pack",
     articlePackReady: "TXT / HTML / ZIP ready",
@@ -267,6 +290,19 @@ const I18N = {
     assetItems: "{count} items",
     images: "Images",
     codeScreenshots: "Code screenshots",
+    tables: "Tables",
+    table: "Table {index}",
+    tablePreview: "Table preview",
+    copyTableText: "Copy table text",
+    copyCsv: "Copy CSV",
+    copyTableImage: "Copy image",
+    downloadCsv: "Download CSV",
+    downloadTableImage: "Download image",
+    copiedTableText: "Copied table text",
+    copiedCsv: "Copied CSV",
+    copiedTableImage: "Copied table image",
+    tableImageDownloaded: "Table image downloaded",
+    tableImageUnavailableDownloaded: "Table image copy unavailable. Downloaded PNG.",
     localImage: "Local image",
     dropImage: "Drop local image",
     chooseOrDropImage: "Choose or drop a local image",
@@ -587,6 +623,7 @@ function renderArticle(result) {
     <span>${t("paragraphs", { count: result.stats.paragraphs })}</span>
     <span>${t("imageCount", { count: result.assets.images.length })}</span>
     <span>${t("codeCount", { count: result.assets.codeBlocks.length })}</span>
+    <span>${t("tableCount", { count: assetTables(result.assets).length })}</span>
     <span>${t("readTime", { count: result.stats.readMinutes })}</span>
   `;
 
@@ -668,7 +705,8 @@ function renderPublishPanel(result) {
 }
 
 function renderArticlePublishPanel(result) {
-  const totalAssets = result.assets.images.length + result.assets.codeBlocks.length;
+  const tables = assetTables(result.assets);
+  const totalAssets = result.assets.images.length + result.assets.codeBlocks.length + tables.length;
   const localImages = result.assets.images.filter((image) => getLocalImageAttachment(image)).length;
   const readiness = articleReadiness(result);
   publishStatus.textContent = readinessLabel(readiness);
@@ -710,6 +748,7 @@ function renderArticlePublishPanel(result) {
         <div class="asset-summary">
           <span>${escapeHtml(t("imageCount", { count: result.assets.images.length }))}</span>
           <span>${escapeHtml(t("codeCount", { count: result.assets.codeBlocks.length }))}</span>
+          <span>${escapeHtml(t("tableCount", { count: tables.length }))}</span>
           <span>${localImages} ${state.lang === "en" ? "local" : "本地"}</span>
         </div>
       </div>
@@ -780,6 +819,7 @@ function renderThreadPublishPanel(result) {
 function articleReadiness(result) {
   const imageCount = result.assets.images.length;
   const codeCount = result.assets.codeBlocks.length;
+  const tableCount = assetTables(result.assets).length;
   const localImages = result.assets.images.filter((image) => getLocalImageAttachment(image)).length;
   const remoteImages = result.assets.images.filter((image) => !getLocalImageAttachment(image)).length;
   const hasBody = Boolean(result.plain.trim());
@@ -800,7 +840,9 @@ function articleReadiness(result) {
     },
     {
       label: t("assets"),
-      detail: imageCount || codeCount ? t("assetsReady", { images: imageCount, codes: codeCount, local: localImages }) : t("noAssets"),
+      detail: imageCount || codeCount || tableCount
+        ? t("assetsReady", { images: imageCount, codes: codeCount, tables: tableCount, local: localImages })
+        : t("noAssets"),
       state: remoteImages ? "warn" : "done",
     },
     {
@@ -894,6 +936,10 @@ function normalizeTags(value) {
     .split(",")
     .map((item) => item.trim().replace(/^#/, ""))
     .filter(Boolean);
+}
+
+function assetTables(assets) {
+  return Array.isArray(assets?.tables) ? assets.tables : [];
 }
 
 function t(key, values = {}) {
@@ -1003,6 +1049,7 @@ async function createArticlePack(result) {
     codeErrors: [],
     imageUrlFallbacks: [],
     localImages: [],
+    tableErrors: [],
   };
   zip.file("article.txt", `${result.plain}\n`);
   zip.file("article.html", `<!doctype html><html><meta charset="utf-8"><body>${result.html}</body></html>\n`);
@@ -1017,6 +1064,18 @@ async function createArticlePack(result) {
     } catch (error) {
       packNotes.codeErrors.push({ block, error });
       zip.file(codeErrorPath(block), `${formatError(error)}\n`);
+    }
+  }
+
+  for (const table of assetTables(result.assets)) {
+    zip.file(tableCsvPath(table), tableToCsv(table));
+    zip.file(tableTextPath(table), tableToText(table));
+    try {
+      const image = await renderTableImage(table);
+      zip.file(tableImagePath(table), image);
+    } catch (error) {
+      packNotes.tableErrors.push({ table, error });
+      zip.file(tableErrorPath(table), `${formatError(error)}\n`);
     }
   }
 
@@ -1072,7 +1131,10 @@ Use \`thread.txt\` to copy each post into X.
   return zip.generateAsync({ type: "blob" });
 }
 
-function buildArticleManifest(result, packNotes = { codeErrors: [], imageUrlFallbacks: [], localImages: [] }) {
+function buildArticleManifest(
+  result,
+  packNotes = { codeErrors: [], imageUrlFallbacks: [], localImages: [], tableErrors: [] },
+) {
   const localImages = new Map((packNotes.localImages || []).map((item) => [item.image.index, item]));
   const lines = [
     "# X Article Pack",
@@ -1089,6 +1151,9 @@ function buildArticleManifest(result, packNotes = { codeErrors: [], imageUrlFall
     "- `article.html`: rich text body backup.",
     "- `assets/code/*.png`: code screenshots for media upload.",
     "- `assets/code/*.txt`: original code blocks.",
+    "- `assets/tables/*.csv`: extracted Markdown tables.",
+    "- `assets/tables/*.png`: table screenshots for media upload.",
+    "- `assets/tables/*.txt`: readable table text.",
     "- `assets/images/image-*.*`: local attachments or fetched image copies when CORS allows it.",
     "- `assets/images/*.url.txt`: image URLs when browser fetch is blocked or unsafe.",
     "",
@@ -1118,13 +1183,26 @@ function buildArticleManifest(result, packNotes = { codeErrors: [], imageUrlFall
     lines.push("No code blocks.");
   }
 
-  if (packNotes.imageUrlFallbacks.length || packNotes.codeErrors.length) {
+  lines.push("", "## Tables", "");
+  if (assetTables(result.assets).length) {
+    assetTables(result.assets).forEach((table) => {
+      const failed = packNotes.tableErrors.some((item) => item.table.index === table.index);
+      lines.push(`${table.index}. ${table.headers.join(" | ")} — \`${failed ? tableErrorPath(table) : tableImagePath(table)}\``);
+    });
+  } else {
+    lines.push("No tables.");
+  }
+
+  if (packNotes.imageUrlFallbacks.length || packNotes.codeErrors.length || packNotes.tableErrors.length) {
     lines.push("", "## Pack Notes", "");
     packNotes.imageUrlFallbacks.forEach(({ image, reason }) => {
       lines.push(`- Image ${image.index} saved as URL only: ${reason}.`);
     });
     packNotes.codeErrors.forEach(({ block, error }) => {
       lines.push(`- Code block ${block.index} screenshot failed: ${formatError(error)}.`);
+    });
+    packNotes.tableErrors.forEach(({ table, error }) => {
+      lines.push(`- Table ${table.index} screenshot failed: ${formatError(error)}.`);
     });
   }
 
@@ -1135,7 +1213,8 @@ function buildArticleManifest(result, packNotes = { codeErrors: [], imageUrlFall
 function renderAssets(assets) {
   const section = document.createElement("section");
   section.className = "asset-section";
-  const totalAssets = assets.images.length + assets.codeBlocks.length;
+  const tables = assetTables(assets);
+  const totalAssets = assets.images.length + assets.codeBlocks.length + tables.length;
   section.innerHTML = `
     <div class="asset-section-head">
       <div>
@@ -1262,6 +1341,48 @@ function renderAssets(assets) {
       item.querySelector('[data-action="copy-code"]').addEventListener("click", () => copyText(block.code, t("copiedCode")));
       item.querySelector('[data-action="copy-code-image"]').addEventListener("click", () => copyCodeImage(block));
       item.querySelector('[data-action="download-code-image"]').addEventListener("click", () => downloadCodeImage(block));
+      group.appendChild(item);
+    });
+
+    section.appendChild(group);
+  }
+
+  if (tables.length) {
+    const group = document.createElement("div");
+    group.className = "asset-group";
+    group.innerHTML = `<h4>${escapeHtml(t("tables"))}</h4>`;
+
+    tables.forEach((table) => {
+      const item = document.createElement("article");
+      item.className = "asset-card table-asset";
+      item.innerHTML = `
+        <div class="table-preview" data-table-preview></div>
+        <div class="asset-body">
+          <strong>${escapeHtml(t("table", { index: table.index }))}</strong>
+          <p>${escapeHtml(table.headers.join(" | "))}</p>
+          <small>ZIP: ${escapeHtml(tableCsvPath(table))} / ${escapeHtml(tableImagePath(table))}</small>
+          <div class="asset-actions">
+            <button class="ghost small" type="button" data-action="copy-table-text">${escapeHtml(t("copyTableText"))}</button>
+            <button class="ghost small" type="button" data-action="copy-table-csv">${escapeHtml(t("copyCsv"))}</button>
+            <button class="ghost small" type="button" data-action="copy-table-image">${escapeHtml(t("copyTableImage"))}</button>
+            <button class="ghost small" type="button" data-action="download-table-csv">${escapeHtml(t("downloadCsv"))}</button>
+            <button class="ghost small" type="button" data-action="download-table-image">${escapeHtml(t("downloadTableImage"))}</button>
+          </div>
+        </div>
+      `;
+
+      item.querySelector("[data-table-preview]").appendChild(renderTablePreview(table));
+      item
+        .querySelector('[data-action="copy-table-text"]')
+        .addEventListener("click", () => copyText(tableToText(table), t("copiedTableText")));
+      item
+        .querySelector('[data-action="copy-table-csv"]')
+        .addEventListener("click", () => copyText(tableToCsv(table), t("copiedCsv")));
+      item.querySelector('[data-action="copy-table-image"]').addEventListener("click", () => copyTableImage(table));
+      item.querySelector('[data-action="download-table-csv"]').addEventListener("click", () => {
+        downloadBlob(new Blob([tableToCsv(table)], { type: "text/csv;charset=utf-8" }), `${table.safeLabel}.csv`);
+      });
+      item.querySelector('[data-action="download-table-image"]').addEventListener("click", () => downloadTableImage(table));
       group.appendChild(item);
     });
 
@@ -1403,6 +1524,36 @@ async function downloadCodeImage(block) {
   }
 }
 
+async function copyTableImage(table) {
+  let blob;
+  try {
+    blob = await renderTableImage(table);
+  } catch (error) {
+    console.warn(error);
+    await copyText(tableToText(table), t("codeImageFailedCopiedCode"), t("codeImageFailed"));
+    return;
+  }
+
+  try {
+    await copyPngBlob(blob, t("copiedTableImage"));
+  } catch (error) {
+    console.warn(error);
+    downloadBlob(blob, `${table.safeLabel}.png`);
+    showToast(t("tableImageUnavailableDownloaded"), "warning");
+  }
+}
+
+async function downloadTableImage(table) {
+  try {
+    const blob = await renderTableImage(table);
+    downloadBlob(blob, `${table.safeLabel}.png`);
+    showToast(t("tableImageDownloaded"));
+  } catch (error) {
+    console.warn(error);
+    await copyText(tableToText(table), t("codeImageDownloadFailedCopied"), t("codeImageDownloadFailed"));
+  }
+}
+
 async function copyPngBlob(blob, successMessage = t("copiedImage")) {
   if (!window.ClipboardItem || !navigator.clipboard?.write) {
     throw new Error("Clipboard image write is unavailable");
@@ -1428,6 +1579,122 @@ async function imageBlobToPng(blob) {
   return new Promise((resolve, reject) => {
     canvas.toBlob((png) => (png ? resolve(png) : reject(new Error("Could not render PNG"))), "image/png");
   });
+}
+
+function renderTablePreview(table) {
+  const preview = document.createElement("table");
+  const thead = document.createElement("thead");
+  const tbody = document.createElement("tbody");
+  const headerRow = document.createElement("tr");
+
+  table.headers.forEach((header, index) => {
+    const cell = document.createElement("th");
+    cell.textContent = header;
+    cell.style.textAlign = table.alignments?.[index] || "left";
+    headerRow.appendChild(cell);
+  });
+  thead.appendChild(headerRow);
+
+  table.rows.forEach((row) => {
+    const tableRow = document.createElement("tr");
+    row.forEach((value, index) => {
+      const cell = document.createElement("td");
+      cell.textContent = value;
+      cell.style.textAlign = table.alignments?.[index] || "left";
+      tableRow.appendChild(cell);
+    });
+    tbody.appendChild(tableRow);
+  });
+
+  preview.append(thead, tbody);
+  return preview;
+}
+
+async function renderTableImage(table) {
+  const headers = table.headers || [];
+  const rows = table.rows || [];
+  const allRows = [headers, ...rows];
+  const fontSize = 22;
+  const lineHeight = 32;
+  const cellPaddingX = 18;
+  const cellPaddingY = 14;
+  const maxCellWidth = 360;
+  const minCellWidth = 120;
+  const border = 2;
+  const captionHeight = 54;
+
+  const measureCanvas = document.createElement("canvas");
+  const measureContext = measureCanvas.getContext("2d");
+  measureContext.font = `${fontSize}px ${getComputedStyle(document.body).fontFamily}`;
+  const widths = headers.map((_header, column) => {
+    const maxTextWidth = Math.max(
+      ...allRows.map((row) => measureContext.measureText(String(row[column] ?? "")).width),
+      minCellWidth - cellPaddingX * 2,
+    );
+    return Math.ceil(Math.min(Math.max(maxTextWidth + cellPaddingX * 2, minCellWidth), maxCellWidth));
+  });
+  const wrappedRows = allRows.map((row) =>
+    row.map((cell, column) => wrapTextForWidth(String(cell ?? ""), widths[column] - cellPaddingX * 2, measureContext)),
+  );
+  const heights = wrappedRows.map((row) => Math.max(...row.map((cellLines) => cellLines.length), 1) * lineHeight + cellPaddingY * 2);
+  const width = Math.ceil(widths.reduce((total, value) => total + value, 0) + border * (widths.length + 1));
+  const height = Math.ceil(captionHeight + heights.reduce((total, value) => total + value, 0) + border * (allRows.length + 1));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.min(Math.max(width, 640), 1800);
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#fffdf8";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#16212d";
+  context.fillRect(0, 0, canvas.width, captionHeight);
+  context.fillStyle = "#f7fafc";
+  context.font = `700 22px ${getComputedStyle(document.body).fontFamily}`;
+  context.fillText(t("table", { index: table.index }), 24, 35);
+
+  let y = captionHeight + border;
+  wrappedRows.forEach((row, rowIndex) => {
+    let x = border;
+    const rowHeight = heights[rowIndex];
+    row.forEach((cellLines, column) => {
+      const cellWidth = widths[column];
+      context.fillStyle = rowIndex === 0 ? "#e8f0f8" : "#ffffff";
+      context.fillRect(x, y, cellWidth, rowHeight);
+      context.strokeStyle = "#cbd5df";
+      context.lineWidth = border;
+      context.strokeRect(x, y, cellWidth, rowHeight);
+      context.fillStyle = rowIndex === 0 ? "#15181d" : "#29313b";
+      context.font = `${rowIndex === 0 ? "700" : "400"} ${fontSize}px ${getComputedStyle(document.body).fontFamily}`;
+      cellLines.forEach((line, lineIndex) => {
+        context.fillText(line, x + cellPaddingX, y + cellPaddingY + fontSize + lineIndex * lineHeight);
+      });
+      x += cellWidth + border;
+    });
+    y += rowHeight + border;
+  });
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("Could not render table image"))), "image/png");
+  });
+}
+
+function wrapTextForWidth(text, maxWidth, context) {
+  const chars = Array.from(text || " ");
+  const lines = [];
+  let current = "";
+
+  chars.forEach((char) => {
+    const candidate = `${current}${char}`;
+    if (!current || context.measureText(candidate).width <= maxWidth) {
+      current = candidate;
+      return;
+    }
+    lines.push(current);
+    current = char;
+  });
+
+  if (current) lines.push(current);
+  return lines;
 }
 
 async function renderCodeImage(block) {
@@ -1526,6 +1793,44 @@ function codeImagePath(block) {
 
 function codeErrorPath(block) {
   return `assets/code/${codeBaseName(block)}.error.txt`;
+}
+
+function tableCsvPath(table) {
+  return `assets/tables/${table.suggestedFilename || `table-${table.index}.csv`}`;
+}
+
+function tableTextPath(table) {
+  return `assets/tables/${table.safeLabel || `table-${table.index}`}.txt`;
+}
+
+function tableImagePath(table) {
+  return `assets/tables/${table.safeLabel || `table-${table.index}`}.png`;
+}
+
+function tableErrorPath(table) {
+  return `assets/tables/${table.safeLabel || `table-${table.index}`}.error.txt`;
+}
+
+function tableToCsv(table) {
+  return `${[table.headers, ...table.rows].map((row) => row.map(csvCell).join(",")).join("\n")}\n`;
+}
+
+function tableToText(table) {
+  const rows = [table.headers, ...table.rows];
+  const widths = table.headers.map((_header, column) =>
+    Math.max(...rows.map((row) => Array.from(String(row[column] ?? "")).length)),
+  );
+  const lines = rows.map((row) => row.map((cell, column) => String(cell ?? "").padEnd(widths[column], " ")).join(" | "));
+  if (lines.length > 1) {
+    const divider = widths.map((width) => "-".repeat(Math.max(width, 3))).join("-|-");
+    lines.splice(1, 0, divider);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\n]/.test(text) ? `"${text.replaceAll("\"", "\"\"")}"` : text;
 }
 
 function localImageFilename(image, file) {
