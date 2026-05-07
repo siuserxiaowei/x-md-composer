@@ -42,46 +42,343 @@ const state = {
   maxChars: Number(localStorage.getItem("xmd.maxChars") || DEFAULT_OPTIONS.maxChars),
   mode: localStorage.getItem("xmd.mode") || "article",
   numbering: localStorage.getItem("xmd.numbering") || DEFAULT_OPTIONS.numbering,
+  lang: localStorage.getItem("xmd.lang") || "zh",
 };
 
 const app = document.querySelector("#app");
 const localImageAttachments = new Map();
 let toastTimer = 0;
 
+const I18N = {
+  zh: {
+    appEyebrow: "本地发布工作台",
+    heroLede: "把 Markdown 长文变成可复制的 X Articles 正文、Thread 和发布素材包。",
+    privacyLabel: "隐私",
+    privacyTitle: "本地处理",
+    privacyDesc: "不上传草稿，不需要 X token。",
+    workflowLabel: "流程",
+    workflowTitle: "手动发布",
+    workflowDesc: "复制正文，素材单独上传。",
+    output: "输出",
+    article: "长文",
+    thread: "Thread",
+    maxChars: "单条上限",
+    numbering: "编号",
+    numberingSuffix: "后缀 1/n",
+    numberingPrefix: "前缀 1/n",
+    numberingNone: "无编号",
+    sample: "示例",
+    clear: "清空",
+    copyCurrentArticle: "复制正文",
+    copyCurrentThread: "复制 Thread",
+    markdownSource: "Markdown 源稿",
+    publishFlow: "发布流程",
+    articlePreview: "长文预览",
+    threadPreview: "Thread 预览",
+    bodyPreview: "正文预览",
+    emptyMarkdown: "等待 Markdown",
+    plainPreview: "纯文本预览",
+    chars: "{count} 字符",
+    paragraphs: "{count} 段",
+    imageCount: "{count} 图",
+    codeCount: "{count} 代码",
+    readTime: "约 {count} 分钟",
+    posts: "{count} 条",
+    longest: "最长 {longest}/{max}",
+    allGood: "全部可发",
+    overLimit: "{count} 条超限",
+    localDraft: "local draft",
+    targetChannel: "目标渠道",
+    manual: "Manual",
+    articleBrief: "本地生成正文、素材包和发布顺序；不保存账号，不消耗 API token。",
+    threadBrief: "本地拆分帖子，保留顺序和长度检查；发布时手动复制到 X。",
+    publishActions: "发布动作",
+    articleActionDesc: "先复制正文，再处理素材；ZIP 是可回退的完整发布包。",
+    threadActionGood: "全部在当前长度限制内；可以整体复制或逐条复制。",
+    threadActionInvalid: "{count} 条超过当前上限，请调整长度。",
+    copyBody: "复制正文",
+    copyPlain: "复制纯文本",
+    downloadTxt: "下载 TXT",
+    downloadZipPack: "下载 ZIP 发布包",
+    downloadZip: "下载 ZIP",
+    openXArticles: "打开 X Articles",
+    openX: "打开 X",
+    assetLibrary: "素材库",
+    assetLibraryDesc: "图片无法直接随正文进入 X；本地附件会优先进入 ZIP，代码块会生成 PNG。",
+    draft: "稿件",
+    draftReady: "{paragraphs} 段，约 {minutes} 分钟",
+    waitBody: "等待正文",
+    title: "标题",
+    titleMissing: "建议用 # 标题或 frontmatter title",
+    assets: "素材",
+    assetsReady: "{images} 图，{codes} 代码，{local} 本地",
+    noAssets: "无额外素材",
+    pack: "发布包",
+    articlePackReady: "TXT / HTML / ZIP 已可生成",
+    threadPackReady: "Thread TXT / ZIP 已可生成",
+    split: "拆分",
+    splitReady: "{count} 条帖子",
+    length: "长度",
+    noContent: "无内容",
+    suffixNumbering: "后缀编号",
+    prefixNumbering: "前缀编号",
+    noNumbering: "不编号",
+    readyStatus: "{done}/{total} 就绪",
+    checkStatus: "{done}/{total} 待检查",
+    assetDetails: "素材明细",
+    assetDetailsDesc: "不会随正文复制；从卡片处理，或上传 ZIP 里的 assets/。",
+    assetItems: "{count} 项",
+    images: "图片",
+    codeScreenshots: "代码截图",
+    localImage: "本地图片",
+    dropImage: "拖入本地图片",
+    chooseOrDropImage: "选择或拖放本地图片",
+    localFilePrefix: "本地",
+    image: "图片 {index}",
+    zipLocal: "ZIP 优先使用本地附件: {path}",
+    zipRemote: "ZIP: {path} 或 {fallback}",
+    chooseLocalImage: "选择本地图片",
+    removeLocal: "移除本地",
+    copyUrl: "复制 URL",
+    copyImage: "复制图片",
+    downloadImage: "下载图片",
+    open: "打开",
+    previewFailed: "预览失败",
+    codeBlock: "代码块 {index}{lang}",
+    copyCode: "复制代码",
+    copyCodeImage: "复制截图",
+    downloadCodeImage: "下载截图",
+    copiedPlain: "已复制纯文本",
+    copiedBody: "已复制正文",
+    copiedThread: "已复制 Thread",
+    copiedImageUrl: "已复制图片 URL",
+    copiedCode: "已复制代码",
+    copiedImage: "已复制图片",
+    copiedLocalImage: "已复制本地图片",
+    copiedCodeImage: "已复制代码截图",
+    copyFailed: "复制失败，请手动选择文本",
+    bodyCopyFailed: "正文复制失败，请手动选择文本",
+    richUnavailable: "富文本不可用，已复制纯文本",
+    packBuilding: "正在生成发布包",
+    packing: "正在打包",
+    articlePackDownloaded: "Article 发布包已下载",
+    threadPackDownloaded: "Thread 发布包已下载",
+    packFailed: "发布包生成失败，请重试",
+    chooseImageFile: "请选择图片文件",
+    localImageAttached: "本地图片已附加",
+    localImageRemoved: "已移除本地图片",
+    imageCopyUnavailable: "图片复制不可用，已下载本地文件",
+    localImageDownloaded: "本地图片已下载",
+    imageCannotDownload: "图片不能直接下载，已复制 URL",
+    imageDownloaded: "图片已下载",
+    imageDownloadFailed: "图片下载失败，已复制 URL",
+    imageDownloadAndCopyFailed: "图片下载失败，URL 也未复制",
+    imageCannotCopy: "图片不能直接复制，已复制 URL",
+    imageCopyFailed: "图片复制失败，已复制 URL",
+    imageCopyAndUrlFailed: "图片复制失败，URL 也未复制",
+    codeImageFailedCopiedCode: "截图生成失败，已复制代码",
+    codeImageFailed: "截图生成失败",
+    codeImageUnavailableDownloaded: "截图复制不可用，已下载 PNG",
+    codeImageDownloaded: "代码截图已下载",
+    codeImageDownloadFailedCopied: "截图下载失败，已复制代码",
+    codeImageDownloadFailed: "截图下载失败",
+    xArticleOpened: "已打开 X：正文和素材需分别粘贴/上传",
+    xPostOpened: "已打开 X 发帖",
+    popupBlocked: "打开 X 被浏览器阻止，请允许弹窗",
+    externalOpenFallback: "无法打开，已复制链接",
+  },
+  en: {
+    appEyebrow: "Local publishing desk",
+    heroLede: "Turn Markdown drafts into paste-ready X Articles, threads, and publish packs.",
+    privacyLabel: "Privacy",
+    privacyTitle: "Local-first",
+    privacyDesc: "No draft upload. No X token.",
+    workflowLabel: "Workflow",
+    workflowTitle: "Manual publish",
+    workflowDesc: "Copy body, upload assets separately.",
+    output: "Output",
+    article: "Article",
+    thread: "Thread",
+    maxChars: "Post limit",
+    numbering: "Numbering",
+    numberingSuffix: "Suffix 1/n",
+    numberingPrefix: "Prefix 1/n",
+    numberingNone: "No numbering",
+    sample: "Sample",
+    clear: "Clear",
+    copyCurrentArticle: "Copy body",
+    copyCurrentThread: "Copy thread",
+    markdownSource: "Markdown source",
+    publishFlow: "Publish flow",
+    articlePreview: "Article preview",
+    threadPreview: "Thread preview",
+    bodyPreview: "Body preview",
+    emptyMarkdown: "Waiting for Markdown",
+    plainPreview: "Plain text preview",
+    chars: "{count} chars",
+    paragraphs: "{count} paragraphs",
+    imageCount: "{count} images",
+    codeCount: "{count} code",
+    readTime: "About {count} min",
+    posts: "{count} posts",
+    longest: "Longest {longest}/{max}",
+    allGood: "All postable",
+    overLimit: "{count} over limit",
+    localDraft: "local draft",
+    targetChannel: "Target channel",
+    manual: "Manual",
+    articleBrief: "Generates body copy, assets, and publish order locally; no account storage or API token.",
+    threadBrief: "Splits posts locally and checks order and length; publish manually in X.",
+    publishActions: "Publish actions",
+    articleActionDesc: "Copy the body first, then handle assets; ZIP is the complete fallback pack.",
+    threadActionGood: "All posts fit the current limit; copy as a whole or one by one.",
+    threadActionInvalid: "{count} posts exceed the current limit.",
+    copyBody: "Copy body",
+    copyPlain: "Copy plain",
+    downloadTxt: "Download TXT",
+    downloadZipPack: "Download ZIP pack",
+    downloadZip: "Download ZIP",
+    openXArticles: "Open X Articles",
+    openX: "Open X",
+    assetLibrary: "Asset library",
+    assetLibraryDesc: "Images cannot ride with body copy into X; local files enter ZIP first, code blocks render to PNG.",
+    draft: "Draft",
+    draftReady: "{paragraphs} paragraphs, about {minutes} min",
+    waitBody: "Waiting for body",
+    title: "Title",
+    titleMissing: "Use a # heading or frontmatter title",
+    assets: "Assets",
+    assetsReady: "{images} images, {codes} code, {local} local",
+    noAssets: "No extra assets",
+    pack: "Pack",
+    articlePackReady: "TXT / HTML / ZIP ready",
+    threadPackReady: "Thread TXT / ZIP ready",
+    split: "Split",
+    splitReady: "{count} posts",
+    length: "Length",
+    noContent: "No content",
+    suffixNumbering: "Suffix numbering",
+    prefixNumbering: "Prefix numbering",
+    noNumbering: "No numbering",
+    readyStatus: "{done}/{total} ready",
+    checkStatus: "{done}/{total} check",
+    assetDetails: "Asset details",
+    assetDetailsDesc: "Assets are not copied with the body; use cards or upload ZIP assets.",
+    assetItems: "{count} items",
+    images: "Images",
+    codeScreenshots: "Code screenshots",
+    localImage: "Local image",
+    dropImage: "Drop local image",
+    chooseOrDropImage: "Choose or drop a local image",
+    localFilePrefix: "Local",
+    image: "Image {index}",
+    zipLocal: "ZIP uses local file first: {path}",
+    zipRemote: "ZIP: {path} or {fallback}",
+    chooseLocalImage: "Choose local image",
+    removeLocal: "Remove local",
+    copyUrl: "Copy URL",
+    copyImage: "Copy image",
+    downloadImage: "Download image",
+    open: "Open",
+    previewFailed: "Preview failed",
+    codeBlock: "Code block {index}{lang}",
+    copyCode: "Copy code",
+    copyCodeImage: "Copy image",
+    downloadCodeImage: "Download image",
+    copiedPlain: "Copied plain text",
+    copiedBody: "Copied body",
+    copiedThread: "Copied thread",
+    copiedImageUrl: "Copied image URL",
+    copiedCode: "Copied code",
+    copiedImage: "Copied image",
+    copiedLocalImage: "Copied local image",
+    copiedCodeImage: "Copied code image",
+    copyFailed: "Copy failed. Select text manually.",
+    bodyCopyFailed: "Body copy failed. Select text manually.",
+    richUnavailable: "Rich copy unavailable. Copied plain text.",
+    packBuilding: "Building publish pack",
+    packing: "Packing",
+    articlePackDownloaded: "Article publish pack downloaded",
+    threadPackDownloaded: "Thread publish pack downloaded",
+    packFailed: "Publish pack failed. Try again.",
+    chooseImageFile: "Choose an image file",
+    localImageAttached: "Local image attached",
+    localImageRemoved: "Local image removed",
+    imageCopyUnavailable: "Image copy unavailable. Downloaded local file.",
+    localImageDownloaded: "Local image downloaded",
+    imageCannotDownload: "Cannot download image directly. Copied URL.",
+    imageDownloaded: "Image downloaded",
+    imageDownloadFailed: "Image download failed. Copied URL.",
+    imageDownloadAndCopyFailed: "Image download failed and URL copy failed.",
+    imageCannotCopy: "Cannot copy image directly. Copied URL.",
+    imageCopyFailed: "Image copy failed. Copied URL.",
+    imageCopyAndUrlFailed: "Image copy failed and URL copy failed.",
+    codeImageFailedCopiedCode: "Screenshot failed. Copied code.",
+    codeImageFailed: "Screenshot failed",
+    codeImageUnavailableDownloaded: "Screenshot copy unavailable. Downloaded PNG.",
+    codeImageDownloaded: "Code image downloaded",
+    codeImageDownloadFailedCopied: "Screenshot download failed. Copied code.",
+    codeImageDownloadFailed: "Screenshot download failed",
+    xArticleOpened: "Opened X. Paste body and upload assets separately.",
+    xPostOpened: "Opened X composer",
+    popupBlocked: "X popup was blocked. Allow popups.",
+    externalOpenFallback: "Could not open link. Copied URL.",
+  },
+};
+
 app.innerHTML = `
   <main class="shell">
-    <header class="topbar">
-      <div class="title-block">
-        <p class="eyebrow">本地发布工作台</p>
+    <header class="topbar hero-panel">
+      <div class="title-block hero-copy">
+        <p class="eyebrow" id="appEyebrow"></p>
         <h1>X Markdown Composer</h1>
+        <p class="hero-lede" id="heroLede"></p>
         <div id="draftMeta" class="draft-meta"></div>
       </div>
-      <div class="actions">
-        <button class="ghost" id="loadSample" type="button">示例</button>
-        <button class="ghost" id="clearInput" type="button">清空</button>
-        <button class="primary" id="copyCurrent" type="button">复制当前</button>
+      <div class="hero-cards" aria-label="发布方式说明">
+        <article>
+          <span id="privacyLabel"></span>
+          <strong id="privacyTitle"></strong>
+          <p id="privacyDesc"></p>
+        </article>
+        <article>
+          <span id="workflowLabel"></span>
+          <strong id="workflowTitle"></strong>
+          <p id="workflowDesc"></p>
+        </article>
+      </div>
+      <div class="hero-actions">
+        <div class="language-switch" aria-label="Language">
+          <button type="button" data-lang="zh">中</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="loadSample" type="button"></button>
+          <button class="ghost" id="clearInput" type="button"></button>
+          <button class="primary" id="copyCurrent" type="button"></button>
+        </div>
       </div>
     </header>
 
     <section class="toolbar" aria-label="转换设置">
       <div class="mode-cluster">
-        <span>输出</span>
+        <span id="outputModeLabel"></span>
         <div class="segmented" role="group" aria-label="输出模式">
-          <button type="button" data-mode="article">长文</button>
+          <button type="button" data-mode="article"></button>
           <button type="button" data-mode="thread">Thread</button>
         </div>
       </div>
       <div id="threadSettings" class="thread-settings">
         <label>
-          <span>单条上限</span>
+          <span id="maxCharsLabel"></span>
           <input id="maxChars" type="number" min="80" max="25000" step="1" />
         </label>
         <label>
-          <span>编号</span>
+          <span id="numberingLabel"></span>
           <select id="numbering">
-            <option value="suffix">后缀 1/n</option>
-            <option value="prefix">前缀 1/n</option>
-            <option value="none">无编号</option>
+            <option value="suffix"></option>
+            <option value="prefix"></option>
+            <option value="none"></option>
           </select>
         </label>
       </div>
@@ -92,7 +389,7 @@ app.innerHTML = `
     <section class="workspace" aria-label="写作发布工作台">
       <section class="pane editor-zone" aria-label="Markdown 编辑器">
         <div class="pane-title">
-          <h2>Markdown 源稿</h2>
+          <h2 id="markdownSourceTitle"></h2>
           <span id="sourceCount"></span>
         </div>
         <textarea id="source" spellcheck="false"></textarea>
@@ -108,7 +405,7 @@ app.innerHTML = `
 
       <aside class="pane publish-zone" aria-label="发布与素材">
         <div class="pane-title">
-          <h2 id="publishTitle">发布流程</h2>
+          <h2 id="publishTitle"></h2>
           <span id="publishStatus"></span>
         </div>
         <div id="publishPanel" class="publish-panel"></div>
@@ -132,6 +429,7 @@ const previewStatus = document.querySelector("#previewStatus");
 const publishStatus = document.querySelector("#publishStatus");
 const publishPanel = document.querySelector("#publishPanel");
 const toast = document.querySelector("#toast");
+const languageButtons = document.querySelectorAll("[data-lang]");
 
 source.value = state.input;
 maxChars.value = state.maxChars;
@@ -159,6 +457,14 @@ document.querySelectorAll("[data-mode]").forEach((button) => {
   button.addEventListener("click", () => {
     state.mode = button.dataset.mode;
     localStorage.setItem("xmd.mode", state.mode);
+    render();
+  });
+});
+
+languageButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    state.lang = button.dataset.lang;
+    localStorage.setItem("xmd.lang", state.lang);
     render();
   });
 });
@@ -205,12 +511,19 @@ function downloadCurrentTxt() {
 }
 
 function render() {
-  sourceCount.textContent = `${Array.from(state.input).length} chars`;
+  updateStaticText();
+  sourceCount.textContent = t("chars", { count: Array.from(state.input).length });
   threadSettings.hidden = state.mode !== "thread";
-  document.querySelector("#copyCurrent").textContent = state.mode === "article" ? "复制正文" : "复制 Thread";
+  document.querySelector("#copyCurrent").textContent =
+    state.mode === "article" ? t("copyCurrentArticle") : t("copyCurrentThread");
 
   document.querySelectorAll("[data-mode]").forEach((button) => {
     button.dataset.active = String(button.dataset.mode === state.mode);
+  });
+  languageButtons.forEach((button) => {
+    const active = button.dataset.lang === state.lang;
+    button.dataset.active = String(active);
+    button.setAttribute("aria-pressed", String(active));
   });
 
   if (state.mode === "article") {
@@ -226,11 +539,35 @@ function render() {
   }
 }
 
+function updateStaticText() {
+  document.documentElement.lang = state.lang === "en" ? "en" : "zh-CN";
+  document.querySelector("#appEyebrow").textContent = t("appEyebrow");
+  document.querySelector("#heroLede").textContent = t("heroLede");
+  document.querySelector("#privacyLabel").textContent = t("privacyLabel");
+  document.querySelector("#privacyTitle").textContent = t("privacyTitle");
+  document.querySelector("#privacyDesc").textContent = t("privacyDesc");
+  document.querySelector("#workflowLabel").textContent = t("workflowLabel");
+  document.querySelector("#workflowTitle").textContent = t("workflowTitle");
+  document.querySelector("#workflowDesc").textContent = t("workflowDesc");
+  document.querySelector("#outputModeLabel").textContent = t("output");
+  document.querySelector('[data-mode="article"]').textContent = t("article");
+  document.querySelector('[data-mode="thread"]').textContent = t("thread");
+  document.querySelector("#maxCharsLabel").textContent = t("maxChars");
+  document.querySelector("#numberingLabel").textContent = t("numbering");
+  numbering.querySelector('[value="suffix"]').textContent = t("numberingSuffix");
+  numbering.querySelector('[value="prefix"]').textContent = t("numberingPrefix");
+  numbering.querySelector('[value="none"]').textContent = t("numberingNone");
+  document.querySelector("#loadSample").textContent = t("sample");
+  document.querySelector("#clearInput").textContent = t("clear");
+  document.querySelector("#markdownSourceTitle").textContent = t("markdownSource");
+  document.querySelector("#publishTitle").textContent = t("publishFlow");
+}
+
 function renderDraftMeta(result) {
   const title = getDraftTitle(result);
   const summary = stringMeta(result.meta, "summary") || stringMeta(result.meta, "description");
   const tags = normalizeTags(result.meta?.tags);
-  const status = stringMeta(result.meta, "status") || "local draft";
+  const status = stringMeta(result.meta, "status") || t("localDraft");
 
   draftMeta.innerHTML = `
     <span class="draft-title">${escapeHtml(title)}</span>
@@ -241,21 +578,21 @@ function renderDraftMeta(result) {
 }
 
 function renderArticle(result) {
-  outputTitle.textContent = "长文预览";
-  previewStatus.textContent = "正文预览";
+  outputTitle.textContent = t("articlePreview");
+  previewStatus.textContent = t("bodyPreview");
   const readiness = articleReadiness(result);
   workflowStatus.innerHTML = renderWorkflowPills(readiness);
   metrics.innerHTML = `
-    <span>${result.stats.chars} 字符</span>
-    <span>${result.stats.paragraphs} 段</span>
-    <span>${result.assets.images.length} 图</span>
-    <span>${result.assets.codeBlocks.length} 代码</span>
-    <span>约 ${result.stats.readMinutes} 分钟</span>
+    <span>${t("chars", { count: result.stats.chars })}</span>
+    <span>${t("paragraphs", { count: result.stats.paragraphs })}</span>
+    <span>${t("imageCount", { count: result.assets.images.length })}</span>
+    <span>${t("codeCount", { count: result.assets.codeBlocks.length })}</span>
+    <span>${t("readTime", { count: result.stats.readMinutes })}</span>
   `;
 
   output.innerHTML = "";
   if (!result.plain) {
-    output.innerHTML = `<div class="empty">等待 Markdown</div>`;
+    output.innerHTML = `<div class="empty">${escapeHtml(t("emptyMarkdown"))}</div>`;
     return;
   }
 
@@ -266,7 +603,7 @@ function renderArticle(result) {
   const fallback = document.createElement("details");
   fallback.className = "plain-fallback";
   fallback.innerHTML = `
-    <summary>纯文本预览</summary>
+    <summary>${escapeHtml(t("plainPreview"))}</summary>
     <textarea readonly spellcheck="false"></textarea>
   `;
   const textarea = fallback.querySelector("textarea");
@@ -282,18 +619,18 @@ function renderThread(result) {
   const longest = result.stats.reduce((max, item) => Math.max(max, item.length), 0);
   const readiness = threadReadiness(result);
 
-  outputTitle.textContent = "Thread 预览";
-  previewStatus.textContent = `${result.posts.length} posts`;
+  outputTitle.textContent = t("threadPreview");
+  previewStatus.textContent = t("posts", { count: result.posts.length });
   workflowStatus.innerHTML = renderWorkflowPills(readiness);
   metrics.innerHTML = `
-    <span>${result.posts.length} 条</span>
-    <span>最长 ${longest}/${result.maxChars}</span>
-    <span class="${invalidCount ? "bad" : "good"}">${invalidCount ? `${invalidCount} 条超限` : "全部可发"}</span>
+    <span>${t("posts", { count: result.posts.length })}</span>
+    <span>${t("longest", { longest, max: result.maxChars })}</span>
+    <span class="${invalidCount ? "bad" : "good"}">${invalidCount ? t("overLimit", { count: invalidCount }) : t("allGood")}</span>
   `;
 
   output.innerHTML = "";
   if (!result.posts.length) {
-    output.innerHTML = `<div class="empty">等待 Markdown</div>`;
+    output.innerHTML = `<div class="empty">${escapeHtml(t("emptyMarkdown"))}</div>`;
     return;
   }
 
@@ -305,7 +642,7 @@ function renderThread(result) {
       <div class="post-head">
         <strong>Tweet ${index + 1}</strong>
         <span>${stat.length}/${result.maxChars}</span>
-        <button class="ghost small" type="button">复制</button>
+        <button class="ghost small" type="button">${escapeHtml(t("copyBody"))}</button>
       </div>
       <textarea readonly spellcheck="false"></textarea>
     `;
@@ -341,39 +678,39 @@ function renderArticlePublishPanel(result) {
   flow.innerHTML = `
     <div class="publish-brief">
       <div>
-        <span class="brief-label">目标渠道</span>
+        <span class="brief-label">${escapeHtml(t("targetChannel"))}</span>
         <strong>X Articles</strong>
-        <p>本地生成正文、素材包和发布顺序；不保存账号，不消耗 API token。</p>
+        <p>${escapeHtml(t("articleBrief"))}</p>
       </div>
-      <span class="manual-badge">Manual</span>
+      <span class="manual-badge">${escapeHtml(t("manual"))}</span>
     </div>
 
     ${renderReadinessList(readiness)}
 
     <div class="publish-block command-panel">
       <div>
-        <h3>发布动作</h3>
-        <p>先复制正文，再处理素材；ZIP 是可回退的完整发布包。</p>
+        <h3>${escapeHtml(t("publishActions"))}</h3>
+        <p>${escapeHtml(t("articleActionDesc"))}</p>
       </div>
       <div class="publish-actions">
-        <button class="primary" type="button" data-action="copy-body">复制正文</button>
-        <button class="ghost" type="button" data-action="copy-plain">复制纯文本</button>
-        <button class="ghost" type="button" data-action="download-txt">下载 TXT</button>
-        <button class="primary subtle" type="button" data-action="download-pack">下载 ZIP 发布包</button>
-        <button class="ghost" type="button" data-action="open-x">打开 X Articles</button>
+        <button class="primary" type="button" data-action="copy-body">${escapeHtml(t("copyBody"))}</button>
+        <button class="ghost" type="button" data-action="copy-plain">${escapeHtml(t("copyPlain"))}</button>
+        <button class="ghost" type="button" data-action="download-txt">${escapeHtml(t("downloadTxt"))}</button>
+        <button class="primary subtle" type="button" data-action="download-pack">${escapeHtml(t("downloadZipPack"))}</button>
+        <button class="ghost" type="button" data-action="open-x">${escapeHtml(t("openXArticles"))}</button>
       </div>
     </div>
 
     <div class="publish-block">
       <div class="publish-block-head">
         <div>
-          <h3>素材库</h3>
-          <p>图片无法直接随正文进入 X；本地附件会优先进入 ZIP，代码块会生成 PNG。</p>
+          <h3>${escapeHtml(t("assetLibrary"))}</h3>
+          <p>${escapeHtml(t("assetLibraryDesc"))}</p>
         </div>
         <div class="asset-summary">
-          <span>${result.assets.images.length} 图</span>
-          <span>${result.assets.codeBlocks.length} 代码</span>
-          <span>${localImages} 本地</span>
+          <span>${escapeHtml(t("imageCount", { count: result.assets.images.length }))}</span>
+          <span>${escapeHtml(t("codeCount", { count: result.assets.codeBlocks.length }))}</span>
+          <span>${localImages} ${state.lang === "en" ? "local" : "本地"}</span>
         </div>
       </div>
     </div>
@@ -382,7 +719,7 @@ function renderArticlePublishPanel(result) {
   flow.querySelector('[data-action="copy-body"]').addEventListener("click", () => copyRichText(result.html, result.plain));
   flow
     .querySelector('[data-action="copy-plain"]')
-    .addEventListener("click", () => copyText(result.plain, "已复制纯文本"));
+    .addEventListener("click", () => copyText(result.plain, t("copiedPlain")));
   flow.querySelector('[data-action="download-txt"]').addEventListener("click", () => downloadCurrentTxt());
   flow.querySelector('[data-action="download-pack"]').addEventListener("click", () => downloadPublishPack());
   flow.querySelector('[data-action="open-x"]').addEventListener("click", () => openXComposer());
@@ -402,11 +739,11 @@ function renderThreadPublishPanel(result) {
   flow.innerHTML = `
     <div class="publish-brief">
       <div>
-        <span class="brief-label">目标渠道</span>
+        <span class="brief-label">${escapeHtml(t("targetChannel"))}</span>
         <strong>X Thread</strong>
-        <p>本地拆分帖子，保留顺序和长度检查；发布时手动复制到 X。</p>
+        <p>${escapeHtml(t("threadBrief"))}</p>
       </div>
-      <span class="manual-badge">Manual</span>
+      <span class="manual-badge">${escapeHtml(t("manual"))}</span>
     </div>
 
     ${renderReadinessList(readiness)}
@@ -414,26 +751,26 @@ function renderThreadPublishPanel(result) {
     <div class="publish-block command-panel">
       <div class="publish-block-head">
         <div>
-          <h3>发布动作</h3>
-          <p>${invalidCount ? `${invalidCount} 条超过当前上限，请调整长度。` : "全部在当前长度限制内；可以整体复制或逐条复制。"}</p>
+          <h3>${escapeHtml(t("publishActions"))}</h3>
+          <p>${escapeHtml(invalidCount ? t("threadActionInvalid", { count: invalidCount }) : t("threadActionGood"))}</p>
         </div>
         <div class="asset-summary">
-          <span>${result.posts.length} 条</span>
-          <span>${result.maxChars} 上限</span>
+          <span>${escapeHtml(t("posts", { count: result.posts.length }))}</span>
+          <span>${escapeHtml(t("longest", { longest: result.maxChars, max: result.maxChars }))}</span>
         </div>
       </div>
       <div class="publish-actions">
-        <button class="primary" type="button" data-action="copy-thread">复制 Thread</button>
-        <button class="ghost" type="button" data-action="download-txt">下载 TXT</button>
-        <button class="ghost" type="button" data-action="download-pack">下载 ZIP</button>
-        <button class="ghost" type="button" data-action="open-x">打开 X</button>
+        <button class="primary" type="button" data-action="copy-thread">${escapeHtml(t("copyCurrentThread"))}</button>
+        <button class="ghost" type="button" data-action="download-txt">${escapeHtml(t("downloadTxt"))}</button>
+        <button class="ghost" type="button" data-action="download-pack">${escapeHtml(t("downloadZip"))}</button>
+        <button class="ghost" type="button" data-action="open-x">${escapeHtml(t("openX"))}</button>
       </div>
     </div>
   `;
 
   flow
     .querySelector('[data-action="copy-thread"]')
-    .addEventListener("click", () => copyText(result.posts.join("\n\n"), "已复制 Thread"));
+    .addEventListener("click", () => copyText(result.posts.join("\n\n"), t("copiedThread")));
   flow.querySelector('[data-action="download-txt"]').addEventListener("click", () => downloadCurrentTxt());
   flow.querySelector('[data-action="download-pack"]').addEventListener("click", () => downloadPublishPack());
   flow.querySelector('[data-action="open-x"]').addEventListener("click", () => openXComposer());
@@ -450,23 +787,25 @@ function articleReadiness(result) {
 
   return [
     {
-      label: "稿件",
-      detail: hasBody ? `${result.stats.paragraphs} 段，约 ${result.stats.readMinutes} 分钟` : "等待正文",
+      label: t("draft"),
+      detail: hasBody
+        ? t("draftReady", { paragraphs: result.stats.paragraphs, minutes: result.stats.readMinutes })
+        : t("waitBody"),
       state: hasBody ? "done" : "todo",
     },
     {
-      label: "标题",
-      detail: hasTitle ? getDraftTitle(result) : "建议用 # 标题或 frontmatter title",
+      label: t("title"),
+      detail: hasTitle ? getDraftTitle(result) : t("titleMissing"),
       state: hasTitle ? "done" : "warn",
     },
     {
-      label: "素材",
-      detail: imageCount || codeCount ? `${imageCount} 图，${codeCount} 代码，${localImages} 本地` : "无额外素材",
+      label: t("assets"),
+      detail: imageCount || codeCount ? t("assetsReady", { images: imageCount, codes: codeCount, local: localImages }) : t("noAssets"),
       state: remoteImages ? "warn" : "done",
     },
     {
-      label: "发布包",
-      detail: "TXT / HTML / ZIP 已可生成",
+      label: t("pack"),
+      detail: t("articlePackReady"),
       state: hasBody ? "done" : "todo",
     },
   ];
@@ -479,23 +818,23 @@ function threadReadiness(result) {
 
   return [
     {
-      label: "拆分",
-      detail: hasPosts ? `${result.posts.length} 条帖子` : "等待正文",
+      label: t("split"),
+      detail: hasPosts ? t("splitReady", { count: result.posts.length }) : t("waitBody"),
       state: hasPosts ? "done" : "todo",
     },
     {
-      label: "长度",
-      detail: hasPosts ? `最长 ${longest}/${result.maxChars}` : "无内容",
+      label: t("length"),
+      detail: hasPosts ? t("longest", { longest, max: result.maxChars }) : t("noContent"),
       state: invalidCount ? "warn" : hasPosts ? "done" : "todo",
     },
     {
-      label: "编号",
-      detail: state.numbering === "none" ? "不编号" : state.numbering === "prefix" ? "前缀编号" : "后缀编号",
+      label: t("numbering"),
+      detail: state.numbering === "none" ? t("noNumbering") : state.numbering === "prefix" ? t("prefixNumbering") : t("suffixNumbering"),
       state: "done",
     },
     {
-      label: "发布包",
-      detail: "Thread TXT / ZIP 已可生成",
+      label: t("pack"),
+      detail: t("threadPackReady"),
       state: hasPosts ? "done" : "todo",
     },
   ];
@@ -530,7 +869,7 @@ function renderWorkflowPills(items) {
 function readinessLabel(items) {
   const done = items.filter((item) => item.state === "done").length;
   const warn = items.some((item) => item.state === "warn");
-  return warn ? `${done}/${items.length} 待检查` : `${done}/${items.length} 就绪`;
+  return warn ? t("checkStatus", { done, total: items.length }) : t("readyStatus", { done, total: items.length });
 }
 
 function getDraftTitle(result) {
@@ -557,7 +896,13 @@ function normalizeTags(value) {
     .filter(Boolean);
 }
 
-async function copyText(text, successMessage = "已复制纯文本", failureMessage = "复制失败，请手动选择文本") {
+function t(key, values = {}) {
+  const dictionary = I18N[state.lang] || I18N.zh;
+  const template = dictionary[key] ?? I18N.zh[key] ?? key;
+  return String(template).replace(/\{(\w+)\}/g, (_match, name) => String(values[name] ?? ""));
+}
+
+async function copyText(text, successMessage = t("copiedPlain"), failureMessage = t("copyFailed")) {
   try {
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
@@ -575,7 +920,7 @@ async function copyText(text, successMessage = "已复制纯文本", failureMess
 
 async function copyRichText(html, plain) {
   if (!window.ClipboardItem || !navigator.clipboard?.write) {
-    await copyText(plain, "已复制正文纯文本", "正文复制失败，请手动选择文本");
+    await copyText(plain, t("copiedPlain"), t("bodyCopyFailed"));
     return false;
   }
 
@@ -587,11 +932,11 @@ async function copyRichText(html, plain) {
         "text/plain": new Blob([plain], { type: "text/plain" }),
       }),
     ]);
-    showCopied("已复制正文");
+    showCopied(t("copiedBody"));
     return true;
   } catch (error) {
     console.warn(error);
-    return copyText(plain, "富文本不可用，已复制纯文本", "正文复制失败，请手动选择文本");
+    return copyText(plain, t("richUnavailable"), t("bodyCopyFailed"));
   }
 }
 
@@ -619,13 +964,13 @@ async function downloadPublishPack() {
   const result = isArticle ? convertLongform(state.input) : convertMarkdown(state.input, state);
   setPackBusy(true);
   try {
-    showToast("正在生成发布包");
+    showToast(t("packBuilding"));
     const blob = isArticle ? await createArticlePack(result) : await createThreadPack(result);
     downloadBlob(blob, isArticle ? "x-article-pack.zip" : "x-thread-pack.zip");
-    showToast(isArticle ? "Article 发布包已下载" : "Thread 发布包已下载");
+    showToast(isArticle ? t("articlePackDownloaded") : t("threadPackDownloaded"));
   } catch (error) {
     console.warn(error);
-    showToast("发布包生成失败，请重试", "error");
+    showToast(t("packFailed"), "error");
   } finally {
     setPackBusy(false);
   }
@@ -637,7 +982,7 @@ function setPackBusy(isBusy) {
       button.dataset.idleLabel = button.textContent;
     }
     button.disabled = isBusy;
-    button.textContent = isBusy ? "打包中" : button.dataset.idleLabel;
+    button.textContent = isBusy ? t("packing") : button.dataset.idleLabel;
   });
 }
 
@@ -646,9 +991,9 @@ function openXComposer() {
   const url = isArticle ? "https://x.com/compose/article" : "https://x.com/compose/post";
   const opened = openSafeWindow(url);
   if (opened) {
-    showToast(isArticle ? "已打开 X：正文和素材需分别粘贴/上传" : "已打开 X 发帖");
+    showToast(isArticle ? t("xArticleOpened") : t("xPostOpened"));
   } else {
-    showToast("打开 X 被浏览器阻止，请允许弹窗", "error");
+    showToast(t("popupBlocked"), "error");
   }
 }
 
@@ -710,7 +1055,7 @@ async function createArticlePack(result) {
 }
 
 async function createThreadPack(result) {
-  showCopied("正在打包");
+  showCopied(t("packing"));
   const zip = new JSZip();
   const body = result.posts.map((post, index) => `Tweet ${index + 1}/${result.posts.length}\n${post}`).join("\n\n---\n\n");
   zip.file("thread.txt", `${body}\n`);
@@ -794,44 +1139,48 @@ function renderAssets(assets) {
   section.innerHTML = `
     <div class="asset-section-head">
       <div>
-        <h3>素材明细</h3>
-        <p>不会随正文复制；从卡片处理，或上传 ZIP 里的 assets/。</p>
+        <h3>${escapeHtml(t("assetDetails"))}</h3>
+        <p>${escapeHtml(t("assetDetailsDesc"))}</p>
       </div>
-      <span>${totalAssets} 项</span>
+      <span>${escapeHtml(t("assetItems", { count: totalAssets }))}</span>
     </div>
   `;
 
   if (assets.images.length) {
     const group = document.createElement("div");
     group.className = "asset-group";
-    group.innerHTML = `<h4>图片</h4>`;
+    group.innerHTML = `<h4>${escapeHtml(t("images"))}</h4>`;
 
     assets.images.forEach((image) => {
       const safeUrl = safeImageUrl(image.url);
       const attachment = getLocalImageAttachment(image);
       const previewUrl = attachment?.previewUrl || safeUrl;
-      const previewText = attachment ? "本地图片" : "拖入本地图片";
+      const previewText = attachment ? t("localImage") : t("dropImage");
       const item = document.createElement("article");
       item.className = "asset-card image-asset";
       item.innerHTML = `
-        <div class="asset-preview local-drop${attachment ? " has-local" : ""}" data-drop-zone tabindex="0" role="button" aria-label="选择本地图片">
+        <div class="asset-preview local-drop${attachment ? " has-local" : ""}" data-drop-zone tabindex="0" role="button" aria-label="${escapeAttribute(t("chooseLocalImage"))}">
           ${previewUrl ? `<img alt="" loading="lazy" src="${escapeAttribute(previewUrl)}" />` : `<span>${previewText}</span>`}
-          <span class="drop-hint">${attachment ? `本地: ${escapeHtml(attachment.file.name)}` : "选择或拖放本地图片"}</span>
+          <span class="drop-hint">${attachment ? `${escapeHtml(t("localFilePrefix"))}: ${escapeHtml(attachment.file.name)}` : escapeHtml(t("chooseOrDropImage"))}</span>
         </div>
         <div class="asset-body">
-          <strong>图片 ${image.index}</strong>
+          <strong>${escapeHtml(t("image", { index: image.index }))}</strong>
           <p>${escapeHtml(image.alt || image.title || image.url)}</p>
-          <small>${attachment ? `ZIP 优先使用本地附件: ${escapeHtml(localImagePackPath(image, attachment.file))}` : `ZIP: ${escapeHtml(remoteImagePackPath(image))} 或 ${escapeHtml(imageUrlFallbackPath(image))}`}</small>
+          <small>${
+            attachment
+              ? escapeHtml(t("zipLocal", { path: localImagePackPath(image, attachment.file) }))
+              : escapeHtml(t("zipRemote", { path: remoteImagePackPath(image), fallback: imageUrlFallbackPath(image) }))
+          }</small>
           <input class="asset-file-input" type="file" accept="image/*" hidden />
           <div class="asset-actions local-actions">
-            <button class="ghost small" type="button" data-action="choose-local">选择本地图片</button>
-            ${attachment ? `<button class="ghost small" type="button" data-action="remove-local">移除本地</button>` : ""}
+            <button class="ghost small" type="button" data-action="choose-local">${escapeHtml(t("chooseLocalImage"))}</button>
+            ${attachment ? `<button class="ghost small" type="button" data-action="remove-local">${escapeHtml(t("removeLocal"))}</button>` : ""}
           </div>
           <div class="asset-actions">
-            <button class="ghost small" type="button" data-action="copy-url">复制 URL</button>
-            <button class="ghost small" type="button" data-action="copy-image">复制图片</button>
-            <button class="ghost small" type="button" data-action="download-image">下载图片</button>
-            <button class="ghost small" type="button" data-action="open-image">打开</button>
+            <button class="ghost small" type="button" data-action="copy-url">${escapeHtml(t("copyUrl"))}</button>
+            <button class="ghost small" type="button" data-action="copy-image">${escapeHtml(t("copyImage"))}</button>
+            <button class="ghost small" type="button" data-action="download-image">${escapeHtml(t("downloadImage"))}</button>
+            <button class="ghost small" type="button" data-action="open-image">${escapeHtml(t("open"))}</button>
           </div>
         </div>
       `;
@@ -840,7 +1189,7 @@ function renderAssets(assets) {
       if (previewImage) {
         previewImage.addEventListener("error", () => {
           item.classList.add("preview-failed");
-          item.querySelector(".asset-preview").innerHTML = "<span>预览失败</span>";
+          item.querySelector(".asset-preview").innerHTML = `<span>${escapeHtml(t("previewFailed"))}</span>`;
         });
       }
 
@@ -875,11 +1224,11 @@ function renderAssets(assets) {
       });
       item
         .querySelector('[data-action="copy-url"]')
-        .addEventListener("click", () => copyText(image.url, "已复制图片 URL", "图片 URL 复制失败"));
+        .addEventListener("click", () => copyText(image.url, t("copiedImageUrl"), t("copyFailed")));
       item.querySelector('[data-action="copy-image"]').addEventListener("click", () => copyImageAsset(image));
       item.querySelector('[data-action="download-image"]').addEventListener("click", () => downloadImageAsset(image));
       item.querySelector('[data-action="open-image"]').addEventListener("click", () => {
-        openExternalUrl(safeUrl || image.url, "图片无法打开，已复制 URL");
+        openExternalUrl(safeUrl || image.url, t("externalOpenFallback"));
       });
       group.appendChild(item);
     });
@@ -890,7 +1239,7 @@ function renderAssets(assets) {
   if (assets.codeBlocks.length) {
     const group = document.createElement("div");
     group.className = "asset-group";
-    group.innerHTML = `<h4>代码截图</h4>`;
+    group.innerHTML = `<h4>${escapeHtml(t("codeScreenshots"))}</h4>`;
 
     assets.codeBlocks.forEach((block) => {
       const item = document.createElement("article");
@@ -898,19 +1247,19 @@ function renderAssets(assets) {
       item.innerHTML = `
         <div class="code-shot" data-code-shot></div>
         <div class="asset-body">
-          <strong>代码块 ${block.index}${block.lang ? `: ${escapeHtml(block.lang)}` : ""}</strong>
+          <strong>${escapeHtml(t("codeBlock", { index: block.index, lang: block.lang ? `: ${block.lang}` : "" }))}</strong>
           <small>ZIP: ${escapeHtml(codeImagePath(block))}</small>
           <div class="asset-actions">
-            <button class="ghost small" type="button" data-action="copy-code">复制代码</button>
-            <button class="ghost small" type="button" data-action="copy-code-image">复制截图</button>
-            <button class="ghost small" type="button" data-action="download-code-image">下载截图</button>
+            <button class="ghost small" type="button" data-action="copy-code">${escapeHtml(t("copyCode"))}</button>
+            <button class="ghost small" type="button" data-action="copy-code-image">${escapeHtml(t("copyCodeImage"))}</button>
+            <button class="ghost small" type="button" data-action="download-code-image">${escapeHtml(t("downloadCodeImage"))}</button>
           </div>
         </div>
       `;
 
       const shot = item.querySelector("[data-code-shot]");
       shot.textContent = block.code;
-      item.querySelector('[data-action="copy-code"]').addEventListener("click", () => copyText(block.code, "已复制代码"));
+      item.querySelector('[data-action="copy-code"]').addEventListener("click", () => copyText(block.code, t("copiedCode")));
       item.querySelector('[data-action="copy-code-image"]').addEventListener("click", () => copyCodeImage(block));
       item.querySelector('[data-action="download-code-image"]').addEventListener("click", () => downloadCodeImage(block));
       group.appendChild(item);
@@ -933,7 +1282,7 @@ function getLocalImageAttachment(image) {
 function attachLocalImage(image, file) {
   if (!file) return;
   if (!file.type.startsWith("image/")) {
-    showToast("请选择图片文件", "error");
+    showToast(t("chooseImageFile"), "error");
     return;
   }
 
@@ -947,7 +1296,7 @@ function attachLocalImage(image, file) {
     file,
     previewUrl: URL.createObjectURL(file),
   });
-  showToast("本地图片已附加");
+  showToast(t("localImageAttached"));
   render();
 }
 
@@ -958,7 +1307,7 @@ function removeLocalImage(image) {
     URL.revokeObjectURL(current.previewUrl);
   }
   localImageAttachments.delete(key);
-  showToast("已移除本地图片");
+  showToast(t("localImageRemoved"));
   render();
 }
 
@@ -971,11 +1320,11 @@ async function copyImageAsset(image) {
 
   try {
     const png = await imageBlobToPng(attachment.file);
-    await copyPngBlob(png, "已复制本地图片");
+    await copyPngBlob(png, t("copiedLocalImage"));
   } catch (error) {
     console.warn(error);
     downloadBlob(attachment.file, attachment.file.name || localImageFilename(image, attachment.file));
-    showToast("图片复制不可用，已下载本地文件", "warning");
+    showToast(t("imageCopyUnavailable"), "warning");
   }
 }
 
@@ -983,13 +1332,13 @@ async function downloadImageAsset(image) {
   const attachment = getLocalImageAttachment(image);
   if (attachment) {
     downloadBlob(attachment.file, attachment.file.name || localImageFilename(image, attachment.file));
-    showToast("本地图片已下载");
+    showToast(t("localImageDownloaded"));
     return;
   }
 
   const safeUrl = safeImageUrl(image.url);
   if (!safeUrl) {
-    await copyText(image.url, "图片不能直接下载，已复制 URL", "图片 URL 复制失败");
+    await copyText(image.url, t("imageCannotDownload"), t("copyFailed"));
     return;
   }
 
@@ -998,17 +1347,17 @@ async function downloadImageAsset(image) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const png = await imageBlobToPng(await response.blob());
     downloadBlob(png, remoteImageFilename(image));
-    showToast("图片已下载");
+    showToast(t("imageDownloaded"));
   } catch (error) {
     console.warn(error);
-    await copyText(image.url, "图片下载失败，已复制 URL", "图片下载失败，URL 也未复制");
+    await copyText(image.url, t("imageDownloadFailed"), t("imageDownloadAndCopyFailed"));
   }
 }
 
 async function copyImageFromUrl(url) {
   const safeUrl = safeImageUrl(url);
   if (!safeUrl) {
-    await copyText(url, "图片不能直接复制，已复制 URL", "图片 URL 复制失败");
+    await copyText(url, t("imageCannotCopy"), t("copyFailed"));
     return;
   }
 
@@ -1017,10 +1366,10 @@ async function copyImageFromUrl(url) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
     const png = await imageBlobToPng(blob);
-    await copyPngBlob(png, "已复制图片");
+    await copyPngBlob(png, t("copiedImage"));
   } catch (error) {
     console.warn(error);
-    await copyText(url, "图片复制失败，已复制 URL", "图片复制失败，URL 也未复制");
+    await copyText(url, t("imageCopyFailed"), t("imageCopyAndUrlFailed"));
   }
 }
 
@@ -1030,16 +1379,16 @@ async function copyCodeImage(block) {
     blob = await renderCodeImage(block);
   } catch (error) {
     console.warn(error);
-    await copyText(block.code, "截图生成失败，已复制代码", "截图生成失败");
+    await copyText(block.code, t("codeImageFailedCopiedCode"), t("codeImageFailed"));
     return;
   }
 
   try {
-    await copyPngBlob(blob, "已复制代码截图");
+    await copyPngBlob(blob, t("copiedCodeImage"));
   } catch (error) {
     console.warn(error);
     downloadBlob(blob, `code-${block.index}.png`);
-    showToast("截图复制不可用，已下载 PNG", "warning");
+    showToast(t("codeImageUnavailableDownloaded"), "warning");
   }
 }
 
@@ -1047,14 +1396,14 @@ async function downloadCodeImage(block) {
   try {
     const blob = await renderCodeImage(block);
     downloadBlob(blob, `code-${block.index}.png`);
-    showToast("代码截图已下载");
+    showToast(t("codeImageDownloaded"));
   } catch (error) {
     console.warn(error);
-    await copyText(block.code, "截图下载失败，已复制代码", "截图下载失败");
+    await copyText(block.code, t("codeImageDownloadFailedCopied"), t("codeImageDownloadFailed"));
   }
 }
 
-async function copyPngBlob(blob, successMessage = "已复制图片") {
+async function copyPngBlob(blob, successMessage = t("copiedImage")) {
   if (!window.ClipboardItem || !navigator.clipboard?.write) {
     throw new Error("Clipboard image write is unavailable");
   }
@@ -1141,13 +1490,13 @@ function downloadBlob(blob, filename) {
 function openExternalUrl(url, failureMessage) {
   const safeUrl = safeImageUrl(url);
   if (!safeUrl) {
-    copyText(url, failureMessage, "URL 复制失败");
+    copyText(url, failureMessage, t("copyFailed"));
     return;
   }
 
   const opened = openSafeWindow(safeUrl);
   if (!opened) {
-    copyText(safeUrl, "打开被阻止，已复制 URL", "打开被阻止，URL 复制失败");
+    copyText(safeUrl, t("externalOpenFallback"), t("copyFailed"));
   }
 }
 
