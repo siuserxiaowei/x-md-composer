@@ -1,0 +1,22 @@
+{
+  "name": "x-md-composer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local Markdown to X/Twitter post and thread composer.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "convert": "node scripts/convert.mjs",
+    "test": "node tests/converter.test.mjs"
+  },
+  "dependencies": {
+    "jszip": "^3.10.1",
+    "marked": "^18.0.3",
+    "twitter-text": "^3.1.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.12"
+  }
+}
