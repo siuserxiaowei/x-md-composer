@@ -860,6 +860,13 @@ input {
   justify-content: flex-end;
 }
 
+.asset-summary .matched-assets {
+  border-color: rgba(22, 112, 63, 0.24);
+  background: var(--good-soft);
+  color: var(--good);
+  font-weight: 720;
+}
+
 .asset-section {
   display: grid;
   gap: 14px;
@@ -958,6 +965,18 @@ input {
 
 .local-drop.has-local {
   border-color: rgba(22, 112, 63, 0.26);
+}
+
+.local-drop.has-auto-match {
+  border-color: rgba(11, 111, 104, 0.34);
+  background:
+    linear-gradient(180deg, rgba(234, 247, 239, 0.55), rgba(255, 255, 255, 0)),
+    #f8fafc;
+}
+
+.image-asset.is-auto-matched {
+  border-color: rgba(11, 111, 104, 0.24);
+  background: linear-gradient(180deg, rgba(234, 247, 239, 0.45), rgba(255, 255, 255, 0.88));
 }
 
 .drop-hint {

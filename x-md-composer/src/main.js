@@ -55,6 +55,8 @@ const state = {
 
 const app = document.querySelector("#app");
 const localImageAttachments = new Map();
+const localAssetLibrary = new Map();
+const localAssetPreviewUrls = new Map();
 let toastTimer = 0;
 
 const I18N = {
@@ -77,6 +79,7 @@ const I18N = {
     numberingNone: "无编号",
     sample: "示例",
     importMd: "导入 .md",
+    importAssets: "导入素材目录",
     clear: "清空",
     copyCurrentArticle: "复制正文",
     copyCurrentThread: "复制 Thread",
@@ -126,6 +129,7 @@ const I18N = {
     coverMissing: "建议用 frontmatter cover/封面 或第一张图",
     assets: "素材",
     assetsReady: "{images} 图，{codes} 代码，{tables} 表格，{tweets} 推文，{local} 本地",
+    matchedLocalAssets: "{count} 个本地素材已匹配",
     noAssets: "无额外素材",
     embeds: "嵌入",
     embedsReady: "{count} 个 X 推文链接",
@@ -164,6 +168,8 @@ const I18N = {
     tableImageDownloaded: "表格截图已下载",
     tableImageUnavailableDownloaded: "表格截图复制不可用，已下载 PNG",
     localImage: "本地图片",
+    autoMatchedImage: "已匹配：{name}",
+    zipMatched: "ZIP 使用匹配素材: {path}",
     dropImage: "拖入本地图片",
     chooseOrDropImage: "选择或拖放本地图片",
     localFilePrefix: "本地",
@@ -222,6 +228,8 @@ const I18N = {
     externalOpenFallback: "无法打开，已复制链接",
     mdImported: "已导入 Markdown：{name}",
     mdImportFailed: "导入失败，请选择 .md / .markdown 文件",
+    assetsImported: "已导入素材：{count} 个文件",
+    assetsImportFailed: "素材导入失败，请选择包含图片的目录",
   },
   en: {
     appEyebrow: "Local publishing desk",
@@ -242,6 +250,7 @@ const I18N = {
     numberingNone: "No numbering",
     sample: "Sample",
     importMd: "Import .md",
+    importAssets: "Import asset folder",
     clear: "Clear",
     copyCurrentArticle: "Copy body",
     copyCurrentThread: "Copy thread",
@@ -291,6 +300,7 @@ const I18N = {
     coverMissing: "Use frontmatter cover or the first image",
     assets: "Assets",
     assetsReady: "{images} images, {codes} code, {tables} tables, {tweets} tweets, {local} local",
+    matchedLocalAssets: "{count} local assets matched",
     noAssets: "No extra assets",
     embeds: "Embeds",
     embedsReady: "{count} X tweet links",
@@ -329,6 +339,8 @@ const I18N = {
     tableImageDownloaded: "Table image downloaded",
     tableImageUnavailableDownloaded: "Table image copy unavailable. Downloaded PNG.",
     localImage: "Local image",
+    autoMatchedImage: "Matched: {name}",
+    zipMatched: "ZIP uses matched asset: {path}",
     dropImage: "Drop local image",
     chooseOrDropImage: "Choose or drop a local image",
     localFilePrefix: "Local",
@@ -387,6 +399,8 @@ const I18N = {
     externalOpenFallback: "Could not open link. Copied URL.",
     mdImported: "Imported Markdown: {name}",
     mdImportFailed: "Import failed. Choose a .md / .markdown file.",
+    assetsImported: "Imported assets: {count} files",
+    assetsImportFailed: "Asset import failed. Choose a folder with images.",
   },
 };
 
@@ -418,10 +432,12 @@ app.innerHTML = `
         </div>
         <div class="actions">
           <button class="ghost" id="importMarkdown" type="button"></button>
+          <button class="ghost" id="importAssetFolder" type="button"></button>
           <button class="ghost" id="loadSample" type="button"></button>
           <button class="ghost" id="clearInput" type="button"></button>
           <button class="primary" id="copyCurrent" type="button"></button>
           <input id="importMarkdownFile" type="file" accept=".md,.markdown,text/markdown,text/plain" hidden />
+          <input id="importAssetFolderFile" type="file" accept="image/*" webkitdirectory multiple hidden />
         </div>
       </div>
     </header>
@@ -497,6 +513,7 @@ const publishPanel = document.querySelector("#publishPanel");
 const toast = document.querySelector("#toast");
 const languageButtons = document.querySelectorAll("[data-lang]");
 const importMarkdownFile = document.querySelector("#importMarkdownFile");
+const importAssetFolderFile = document.querySelector("#importAssetFolderFile");
 
 source.value = state.input;
 maxChars.value = state.maxChars;
@@ -544,11 +561,19 @@ importMarkdownFile.addEventListener("change", async () => {
   await importMarkdownDraft(file);
 });
 
+document.querySelector("#importAssetFolder").addEventListener("click", () => importAssetFolderFile.click());
+
+importAssetFolderFile.addEventListener("change", () => {
+  const files = Array.from(importAssetFolderFile.files || []);
+  importAssetFolderFile.value = "";
+  importAssetFolder(files);
+});
+
 document.querySelector("#loadSample").addEventListener("click", () => {
   source.value = sample;
   state.input = sample;
   localStorage.setItem("xmd.input", sample);
-  clearLocalImageAttachments();
+  clearLocalImageState();
   render();
 });
 
@@ -556,7 +581,7 @@ document.querySelector("#clearInput").addEventListener("click", () => {
   source.value = "";
   state.input = "";
   localStorage.setItem("xmd.input", "");
-  clearLocalImageAttachments();
+  clearLocalImageState();
   render();
   source.focus();
 });
@@ -597,7 +622,7 @@ async function importMarkdownDraft(file) {
     source.value = text;
     state.input = text;
     localStorage.setItem("xmd.input", text);
-    clearLocalImageAttachments();
+    clearLocalImageState();
     showToast(t("mdImported", { name: file.name }));
     render();
     source.focus();
@@ -605,6 +630,21 @@ async function importMarkdownDraft(file) {
     console.warn(error);
     showToast(t("mdImportFailed"), "error");
   }
+}
+
+function importAssetFolder(files) {
+  if (!files?.length) return;
+  clearLocalAssetLibrary();
+  const imageFiles = Array.from(files || []).filter(addLocalAssetFile);
+
+  if (!imageFiles.length) {
+    showToast(t("assetsImportFailed"), "error");
+    render();
+    return;
+  }
+
+  showToast(t("assetsImported", { count: imageFiles.length }));
+  render();
 }
 
 function markdownFileFromList(list) {
@@ -619,6 +659,12 @@ function isMarkdownFile(file) {
   if (!file) return false;
   const name = String(file.name || "").toLowerCase();
   return name.endsWith(".md") || name.endsWith(".markdown") || file.type === "text/markdown";
+}
+
+function isImageFile(file) {
+  if (!file) return false;
+  if (file.type?.startsWith("image/")) return true;
+  return /\.(avif|gif|heic|heif|jpe?g|png|svg|webp)$/i.test(String(file.name || ""));
 }
 
 function downloadCurrentTxt() {
@@ -684,6 +730,7 @@ function updateStaticText() {
   numbering.querySelector('[value="prefix"]').textContent = t("numberingPrefix");
   numbering.querySelector('[value="none"]').textContent = t("numberingNone");
   document.querySelector("#importMarkdown").textContent = t("importMd");
+  document.querySelector("#importAssetFolder").textContent = t("importAssets");
   document.querySelector("#loadSample").textContent = t("sample");
   document.querySelector("#clearInput").textContent = t("clear");
   document.querySelector("#markdownSourceTitle").textContent = t("markdownSource");
@@ -801,6 +848,7 @@ function renderArticlePublishPanel(result) {
   const tweets = assetTweets(result.assets);
   const totalAssets = result.assets.images.length + result.assets.codeBlocks.length + tables.length + tweets.length;
   const localImages = result.assets.images.filter((image) => getLocalImageAttachment(image)).length;
+  const matchedLocalImages = result.assets.images.filter((image) => getLocalImageAttachment(image)?.auto).length;
   const readiness = articleReadiness(result);
   publishStatus.textContent = readinessLabel(readiness);
 
@@ -844,6 +892,7 @@ function renderArticlePublishPanel(result) {
           <span>${escapeHtml(t("tableCount", { count: tables.length }))}</span>
           <span>${escapeHtml(t("tweetCount", { count: tweets.length }))}</span>
           <span>${localImages} ${state.lang === "en" ? "local" : "本地"}</span>
+          <span class="${matchedLocalImages ? "matched-assets" : ""}">${escapeHtml(t("matchedLocalAssets", { count: matchedLocalImages }))}</span>
         </div>
       </div>
     </div>
@@ -1370,27 +1419,42 @@ function renderAssets(assets) {
     assets.images.forEach((image) => {
       const safeUrl = safeImageUrl(image.url);
       const attachment = getLocalImageAttachment(image);
+      const explicitAttachment = getExplicitLocalImageAttachment(image);
+      const isAutoMatched = Boolean(attachment?.auto);
       const previewUrl = attachment?.previewUrl || safeUrl;
-      const previewText = attachment ? t("localImage") : t("dropImage");
+      const previewText = isAutoMatched
+        ? t("autoMatchedImage", { name: attachment.file.name })
+        : attachment
+          ? t("localImage")
+          : t("dropImage");
+      const dropHint = isAutoMatched
+        ? t("autoMatchedImage", { name: attachment.file.name })
+        : attachment
+          ? `${t("localFilePrefix")}: ${attachment.file.name}`
+          : t("chooseOrDropImage");
       const item = document.createElement("article");
-      item.className = "asset-card image-asset";
+      item.className = `asset-card image-asset${isAutoMatched ? " is-auto-matched" : ""}${
+        explicitAttachment ? " is-explicit-local" : ""
+      }`;
       item.innerHTML = `
-        <div class="asset-preview local-drop${attachment ? " has-local" : ""}" data-drop-zone tabindex="0" role="button" aria-label="${escapeAttribute(t("chooseLocalImage"))}">
+        <div class="asset-preview local-drop${attachment ? " has-local" : ""}${isAutoMatched ? " has-auto-match" : ""}" data-drop-zone tabindex="0" role="button" aria-label="${escapeAttribute(t("chooseLocalImage"))}">
           ${previewUrl ? `<img alt="" loading="lazy" src="${escapeAttribute(previewUrl)}" />` : `<span>${previewText}</span>`}
-          <span class="drop-hint">${attachment ? `${escapeHtml(t("localFilePrefix"))}: ${escapeHtml(attachment.file.name)}` : escapeHtml(t("chooseOrDropImage"))}</span>
+          <span class="drop-hint">${escapeHtml(dropHint)}</span>
         </div>
         <div class="asset-body">
           <strong>${escapeHtml(t("image", { index: image.index }))}</strong>
           <p>${escapeHtml(image.alt || image.title || image.url)}</p>
           <small>${
-            attachment
+            isAutoMatched
+              ? escapeHtml(t("zipMatched", { path: localImagePackPath(image, attachment.file) }))
+              : attachment
               ? escapeHtml(t("zipLocal", { path: localImagePackPath(image, attachment.file) }))
               : escapeHtml(t("zipRemote", { path: remoteImagePackPath(image), fallback: imageUrlFallbackPath(image) }))
           }</small>
           <input class="asset-file-input" type="file" accept="image/*" hidden />
           <div class="asset-actions local-actions">
             <button class="ghost small" type="button" data-action="choose-local">${escapeHtml(t("chooseLocalImage"))}</button>
-            ${attachment ? `<button class="ghost small" type="button" data-action="remove-local">${escapeHtml(t("removeLocal"))}</button>` : ""}
+            ${explicitAttachment ? `<button class="ghost small" type="button" data-action="remove-local">${escapeHtml(t("removeLocal"))}</button>` : ""}
           </div>
           <div class="asset-actions">
             <button class="ghost small" type="button" data-action="copy-url">${escapeHtml(t("copyUrl"))}</button>
@@ -1569,13 +1633,27 @@ function imageAttachmentKey(image) {
   return `${image.index}:${image.url}`;
 }
 
-function getLocalImageAttachment(image) {
+function getExplicitLocalImageAttachment(image) {
   return localImageAttachments.get(imageAttachmentKey(image));
+}
+
+function getLocalImageAttachment(image) {
+  const explicitAttachment = getExplicitLocalImageAttachment(image);
+  if (explicitAttachment) return explicitAttachment;
+
+  const file = getAutoMatchedImageFile(image);
+  if (!file) return null;
+
+  return {
+    auto: true,
+    file,
+    previewUrl: getLocalAssetPreviewUrl(file),
+  };
 }
 
 function attachLocalImage(image, file) {
   if (!file) return;
-  if (!file.type.startsWith("image/")) {
+  if (!isImageFile(file)) {
     showToast(t("chooseImageFile"), "error");
     return;
   }
@@ -1587,6 +1665,7 @@ function attachLocalImage(image, file) {
   }
 
   localImageAttachments.set(key, {
+    auto: false,
     file,
     previewUrl: URL.createObjectURL(file),
   });
@@ -1610,6 +1689,97 @@ function clearLocalImageAttachments() {
     if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
   });
   localImageAttachments.clear();
+}
+
+function clearLocalAssetLibrary() {
+  localAssetPreviewUrls.forEach((previewUrl) => {
+    URL.revokeObjectURL(previewUrl);
+  });
+  localAssetPreviewUrls.clear();
+  localAssetLibrary.clear();
+}
+
+function clearLocalImageState() {
+  clearLocalImageAttachments();
+  clearLocalAssetLibrary();
+}
+
+function addLocalAssetFile(file) {
+  if (!isImageFile(file)) return false;
+  localAssetKeys(file).forEach((key) => {
+    if (!localAssetLibrary.has(key)) {
+      localAssetLibrary.set(key, file);
+    }
+  });
+  return true;
+}
+
+function localAssetKeys(file) {
+  const path = String(file.webkitRelativePath || file.name || "").replaceAll("\\", "/");
+  return localAssetLookupKeys(path);
+}
+
+function getAutoMatchedImageFile(image) {
+  if (!localAssetLibrary.size) return null;
+  return localAssetLookupKeys(image?.url)
+    .map((key) => localAssetLibrary.get(key))
+    .find(Boolean) || null;
+}
+
+function localAssetLookupKeys(value) {
+  const raw = String(value || "");
+  const normalized = normalizeAssetPath(raw);
+  const decoded = normalizeAssetPath(decodeURIComponentSafe(raw));
+  const basename = normalized.split("/").pop() || "";
+  const decodedBasename = normalizeAssetPath(decodeURIComponentSafe(basename));
+  const candidates = [
+    ...localAssetPathSuffixes(normalized),
+    ...localAssetPathSuffixes(decoded),
+    stripAssetsPrefix(normalized),
+    stripAssetsPrefix(decoded),
+    basename,
+    decodedBasename,
+  ];
+  return [...new Set(candidates.filter(Boolean))];
+}
+
+function localAssetPathSuffixes(path) {
+  const parts = normalizeAssetPath(path).split("/").filter(Boolean);
+  return parts.flatMap((_part, index) => {
+    const suffix = parts.slice(index).join("/");
+    return [suffix, stripAssetsPrefix(suffix)];
+  });
+}
+
+function normalizeAssetPath(value) {
+  return String(value || "")
+    .trim()
+    .replaceAll("\\", "/")
+    .replace(/[?#].*$/, "")
+    .replace(/^(\.\/)+/, "")
+    .replace(/^\/+/, "")
+    .replace(/\/+/g, "/")
+    .toLowerCase();
+}
+
+function stripAssetsPrefix(value) {
+  return normalizeAssetPath(value).replace(/^assets\//, "");
+}
+
+function decodeURIComponentSafe(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function getLocalAssetPreviewUrl(file) {
+  const current = localAssetPreviewUrls.get(file);
+  if (current) return current;
+  const previewUrl = URL.createObjectURL(file);
+  localAssetPreviewUrls.set(file, previewUrl);
+  return previewUrl;
 }
 
 async function copyImageAsset(image) {
