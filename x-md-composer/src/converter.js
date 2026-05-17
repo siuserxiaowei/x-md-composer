@@ -156,13 +156,14 @@ export function cleanMarkdown(markdown) {
 
 export function convertLongform(markdown) {
   const sourceMeta = readFrontmatter(markdown);
-  const article = prepareOfficialArticle(markdown);
+  const article = prepareOfficialArticle(markdown, sourceMeta.attributes);
   const html = markdownToArticleHtml(article.markdown);
   const plain = cleanMarkdown(article.markdown).replaceAll(MANUAL_BREAK, "\n\n").trim();
   const paragraphs = plain ? plain.split(/\n{2,}/).filter(Boolean).length : 0;
 
   return {
     markdown: article.markdown,
+    article: resolveArticleMetadata(markdown, sourceMeta.attributes, article.assets),
     html,
     plain,
     meta: sourceMeta.attributes,
@@ -176,13 +177,26 @@ export function convertLongform(markdown) {
   };
 }
 
-export function prepareOfficialArticle(markdown) {
+export function prepareOfficialArticle(markdown, meta = readFrontmatter(markdown).attributes) {
   let text = prepareArticleMarkdown(markdown);
   const codeBlocks = [];
   const images = [];
   const tables = [];
+  const tweetEmbeds = [];
   const imageLabels = new Map();
   const tableLabels = new Map();
+  const coverUrl = stringMeta(meta, "cover") || stringMeta(meta, "封面");
+
+  if (coverUrl) {
+    images.push(createImageAsset({
+      alt: "Cover",
+      imageLabels,
+      index: 1,
+      role: "cover",
+      title: "",
+      url: coverUrl,
+    }));
+  }
 
   text = replaceFencedCodeBlocks(text, ({ code, meta }) => {
     const lang = String(meta ?? "").trim().split(/\s+/)[0] || "";
@@ -221,27 +235,34 @@ export function prepareOfficialArticle(markdown) {
     const altText = alt.trim();
     const titleText = title.trim();
     const url = destination.trim();
-    const index = images.length + 1;
-    const fallbackLabel = imageBaseName(url) || `image ${index}`;
+    const existingCover = coverUrl && sameImageSource(url, coverUrl) ? images.find((image) => image.role === "cover") : null;
+    const index = existingCover?.index || images.length + 1;
     const displayLabel = placeholderLabel(altText || titleText || `图片 ${index}`, `图片 ${index}`);
-    const safeLabel = uniqueAssetLabel(
-      makeSafeAssetLabel(altText || titleText || fallbackLabel, `image-${index}`),
-      imageLabels,
-    );
-    images.push({
-      alt: altText,
-      index,
-      safeLabel,
-      sourceKind: sourceKindForImage(url),
-      suggestedFilename: `${safeLabel}.${imageExtensionForSource(url)}`,
-      title: titleText,
-      url,
-    });
+    if (existingCover) {
+      existingCover.alt = altText || existingCover.alt;
+      existingCover.title = titleText || existingCover.title;
+    } else {
+      images.push(createImageAsset({
+        alt: altText,
+        imageLabels,
+        index,
+        role: "body",
+        title: titleText,
+        url,
+      }));
+    }
     return `\n[图片 ${index}: ${displayLabel}]\n`;
   });
 
   text = text.replace(/`([^`\n]+)`/g, "$1");
   text = text.replace(/^\s*[-*+]\s+\[(?: |x|X)\]\s+/gm, "- ");
+  extractTweetEmbeds(text).forEach((tweet) => {
+    tweetEmbeds.push({
+      index: tweetEmbeds.length + 1,
+      safeLabel: `tweet-${tweetEmbeds.length + 1}`,
+      url: tweet.url,
+    });
+  });
   text = text.replace(/\n{3,}/g, "\n\n").trim();
 
   return {
@@ -250,6 +271,7 @@ export function prepareOfficialArticle(markdown) {
       codeBlocks,
       images,
       tables,
+      tweetEmbeds,
     },
   };
 }
@@ -326,7 +348,7 @@ function parseFrontmatterAttributes(raw) {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith("#")) return;
 
-      const match = /^([A-Za-z0-9_-]+)\s*[:=]\s*(.*)$/.exec(trimmed);
+      const match = /^([\p{L}\p{N}_-]+)\s*[:=]\s*(.*)$/u.exec(trimmed);
       if (!match) return;
 
       const key = match[1].trim();
@@ -335,6 +357,94 @@ function parseFrontmatterAttributes(raw) {
     });
 
   return attributes;
+}
+
+function resolveArticleMetadata(markdown, meta, assets) {
+  const title = stringMeta(meta, "title") || stringMeta(meta, "标题") || firstMarkdownHeading(markdown);
+  const titleSource = stringMeta(meta, "title") || stringMeta(meta, "标题") ? "frontmatter" : title ? "heading" : "";
+  const coverUrl = stringMeta(meta, "cover") || stringMeta(meta, "封面");
+  const coverImage = coverUrl
+    ? assets.images.find((image) => sameImageSource(image.url, coverUrl))
+    : assets.images.find((image) => image.role === "cover") || assets.images[0];
+  const coverSource = coverUrl ? "frontmatter" : coverImage ? "first-image" : "";
+  if (coverImage && !coverImage.role) coverImage.role = "cover";
+  if (coverImage && coverImage.role === "body" && coverSource === "first-image") coverImage.role = "cover";
+
+  return {
+    cover: coverImage
+      ? {
+          imageIndex: coverImage.index,
+          source: coverSource,
+          url: coverImage.url,
+        }
+      : null,
+    title,
+    titleSource,
+  };
+}
+
+function createImageAsset({ alt, imageLabels, index, role, title, url }) {
+  const fallbackLabel = role === "cover" ? "cover" : imageBaseName(url) || `image ${index}`;
+  const safeLabel = uniqueAssetLabel(
+    makeSafeAssetLabel(alt || title || fallbackLabel, `image-${index}`),
+    imageLabels,
+  );
+
+  return {
+    alt,
+    index,
+    role,
+    safeLabel,
+    sourceKind: sourceKindForImage(url),
+    suggestedFilename: `${safeLabel}.${imageExtensionForSource(url)}`,
+    title,
+    url,
+  };
+}
+
+function extractTweetEmbeds(markdown) {
+  const source = String(markdown ?? "");
+  const tweets = [];
+  const seen = new Set();
+  const pattern = /https?:\/\/(?:www\.)?(?:x|twitter)\.com\/[A-Za-z0-9_]{1,20}\/status(?:es)?\/\d+(?:[/?#][^\s<)\]]*)?/gi;
+
+  for (const match of source.matchAll(pattern)) {
+    const url = normalizeTweetUrl(match[0]);
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    tweets.push({ url });
+  }
+
+  return tweets;
+}
+
+function normalizeTweetUrl(url) {
+  const value = String(url ?? "").replace(/[.,;:!?]+$/g, "");
+  try {
+    const parsed = new URL(value);
+    const match = /^\/([^/]+)\/status(?:es)?\/(\d+)/i.exec(parsed.pathname);
+    if (!match) return "";
+    return `https://${parsed.hostname.replace(/^www\./i, "")}/${match[1]}/status/${match[2]}`;
+  } catch {
+    return "";
+  }
+}
+
+function sameImageSource(left, right) {
+  return String(left ?? "").trim() === String(right ?? "").trim();
+}
+
+function firstMarkdownHeading(markdown) {
+  const body = stripFrontmatter(String(markdown ?? "").replace(/\r\n?/g, "\n").normalize("NFC"));
+  const match = /^#\s+(.+)$/m.exec(body);
+  return match ? match[1].replace(/[#*_`[\]()]/g, "").trim() : "";
+}
+
+function stringMeta(meta, key) {
+  const value = meta?.[key];
+  if (Array.isArray(value)) return value.join(", ");
+  if (value === undefined || value === null || value === "") return "";
+  return String(value);
 }
 
 function parseFrontmatterValue(value) {

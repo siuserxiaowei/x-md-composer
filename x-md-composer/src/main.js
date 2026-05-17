@@ -76,6 +76,7 @@ const I18N = {
     numberingPrefix: "前缀 1/n",
     numberingNone: "无编号",
     sample: "示例",
+    importMd: "导入 .md",
     clear: "清空",
     copyCurrentArticle: "复制正文",
     copyCurrentThread: "复制 Thread",
@@ -91,6 +92,7 @@ const I18N = {
     imageCount: "{count} 图",
     codeCount: "{count} 代码",
     tableCount: "{count} 表格",
+    tweetCount: "{count} 推文",
     readTime: "约 {count} 分钟",
     posts: "{count} 条",
     longest: "最长 {longest}/{max}",
@@ -119,9 +121,15 @@ const I18N = {
     waitBody: "等待正文",
     title: "标题",
     titleMissing: "建议用 # 标题或 frontmatter title",
+    cover: "封面",
+    coverReady: "{source}：图片 {index}",
+    coverMissing: "建议用 frontmatter cover/封面 或第一张图",
     assets: "素材",
-    assetsReady: "{images} 图，{codes} 代码，{tables} 表格，{local} 本地",
+    assetsReady: "{images} 图，{codes} 代码，{tables} 表格，{tweets} 推文，{local} 本地",
     noAssets: "无额外素材",
+    embeds: "嵌入",
+    embedsReady: "{count} 个 X 推文链接",
+    noEmbeds: "无推文嵌入",
     pack: "发布包",
     articlePackReady: "TXT / HTML / ZIP 已可生成",
     threadPackReady: "Thread TXT / ZIP 已可生成",
@@ -140,6 +148,9 @@ const I18N = {
     images: "图片",
     codeScreenshots: "代码截图",
     tables: "表格",
+    tweetEmbeds: "推文嵌入",
+    tweetEmbed: "推文 {index}",
+    tweetEmbedDesc: "粘贴到 X Article 后按 X 编辑器规则转为嵌入卡片。",
     table: "表格 {index}",
     tablePreview: "表格预览",
     copyTableText: "复制表格文本",
@@ -173,6 +184,7 @@ const I18N = {
     copiedPlain: "已复制纯文本",
     copiedBody: "已复制正文",
     copiedThread: "已复制 Thread",
+    copiedTweetUrl: "已复制推文 URL",
     copiedImageUrl: "已复制图片 URL",
     copiedCode: "已复制代码",
     copiedImage: "已复制图片",
@@ -208,6 +220,8 @@ const I18N = {
     xPostOpened: "已打开 X 发帖",
     popupBlocked: "打开 X 被浏览器阻止，请允许弹窗",
     externalOpenFallback: "无法打开，已复制链接",
+    mdImported: "已导入 Markdown：{name}",
+    mdImportFailed: "导入失败，请选择 .md / .markdown 文件",
   },
   en: {
     appEyebrow: "Local publishing desk",
@@ -227,6 +241,7 @@ const I18N = {
     numberingPrefix: "Prefix 1/n",
     numberingNone: "No numbering",
     sample: "Sample",
+    importMd: "Import .md",
     clear: "Clear",
     copyCurrentArticle: "Copy body",
     copyCurrentThread: "Copy thread",
@@ -242,6 +257,7 @@ const I18N = {
     imageCount: "{count} images",
     codeCount: "{count} code",
     tableCount: "{count} tables",
+    tweetCount: "{count} tweets",
     readTime: "About {count} min",
     posts: "{count} posts",
     longest: "Longest {longest}/{max}",
@@ -270,9 +286,15 @@ const I18N = {
     waitBody: "Waiting for body",
     title: "Title",
     titleMissing: "Use a # heading or frontmatter title",
+    cover: "Cover",
+    coverReady: "{source}: image {index}",
+    coverMissing: "Use frontmatter cover or the first image",
     assets: "Assets",
-    assetsReady: "{images} images, {codes} code, {tables} tables, {local} local",
+    assetsReady: "{images} images, {codes} code, {tables} tables, {tweets} tweets, {local} local",
     noAssets: "No extra assets",
+    embeds: "Embeds",
+    embedsReady: "{count} X tweet links",
+    noEmbeds: "No tweet embeds",
     pack: "Pack",
     articlePackReady: "TXT / HTML / ZIP ready",
     threadPackReady: "Thread TXT / ZIP ready",
@@ -291,6 +313,9 @@ const I18N = {
     images: "Images",
     codeScreenshots: "Code screenshots",
     tables: "Tables",
+    tweetEmbeds: "Tweet embeds",
+    tweetEmbed: "Tweet {index}",
+    tweetEmbedDesc: "X Articles can convert this link into an embed card after paste.",
     table: "Table {index}",
     tablePreview: "Table preview",
     copyTableText: "Copy table text",
@@ -324,6 +349,7 @@ const I18N = {
     copiedPlain: "Copied plain text",
     copiedBody: "Copied body",
     copiedThread: "Copied thread",
+    copiedTweetUrl: "Copied tweet URL",
     copiedImageUrl: "Copied image URL",
     copiedCode: "Copied code",
     copiedImage: "Copied image",
@@ -359,6 +385,8 @@ const I18N = {
     xPostOpened: "Opened X composer",
     popupBlocked: "X popup was blocked. Allow popups.",
     externalOpenFallback: "Could not open link. Copied URL.",
+    mdImported: "Imported Markdown: {name}",
+    mdImportFailed: "Import failed. Choose a .md / .markdown file.",
   },
 };
 
@@ -389,9 +417,11 @@ app.innerHTML = `
           <button type="button" data-lang="en">EN</button>
         </div>
         <div class="actions">
+          <button class="ghost" id="importMarkdown" type="button"></button>
           <button class="ghost" id="loadSample" type="button"></button>
           <button class="ghost" id="clearInput" type="button"></button>
           <button class="primary" id="copyCurrent" type="button"></button>
+          <input id="importMarkdownFile" type="file" accept=".md,.markdown,text/markdown,text/plain" hidden />
         </div>
       </div>
     </header>
@@ -466,6 +496,7 @@ const publishStatus = document.querySelector("#publishStatus");
 const publishPanel = document.querySelector("#publishPanel");
 const toast = document.querySelector("#toast");
 const languageButtons = document.querySelectorAll("[data-lang]");
+const importMarkdownFile = document.querySelector("#importMarkdownFile");
 
 source.value = state.input;
 maxChars.value = state.maxChars;
@@ -505,10 +536,19 @@ languageButtons.forEach((button) => {
   });
 });
 
+document.querySelector("#importMarkdown").addEventListener("click", () => importMarkdownFile.click());
+
+importMarkdownFile.addEventListener("change", async () => {
+  const file = importMarkdownFile.files?.[0];
+  importMarkdownFile.value = "";
+  await importMarkdownDraft(file);
+});
+
 document.querySelector("#loadSample").addEventListener("click", () => {
   source.value = sample;
   state.input = sample;
   localStorage.setItem("xmd.input", sample);
+  clearLocalImageAttachments();
   render();
 });
 
@@ -516,6 +556,7 @@ document.querySelector("#clearInput").addEventListener("click", () => {
   source.value = "";
   state.input = "";
   localStorage.setItem("xmd.input", "");
+  clearLocalImageAttachments();
   render();
   source.focus();
 });
@@ -530,6 +571,55 @@ document.querySelector("#copyCurrent").addEventListener("click", async () => {
   const result = convertMarkdown(state.input, state);
   await copyText(result.posts.join("\n\n"));
 });
+
+document.addEventListener("dragover", (event) => {
+  const markdownFile = markdownFileFromList(event.dataTransfer?.items || event.dataTransfer?.files);
+  if (!markdownFile) return;
+  event.preventDefault();
+});
+
+document.addEventListener("drop", async (event) => {
+  if (event.defaultPrevented || event.target?.closest?.(".local-drop")) return;
+  const markdownFile = markdownFileFromList(event.dataTransfer?.files);
+  if (!markdownFile) return;
+  event.preventDefault();
+  await importMarkdownDraft(markdownFile);
+});
+
+async function importMarkdownDraft(file) {
+  if (!isMarkdownFile(file)) {
+    showToast(t("mdImportFailed"), "error");
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    source.value = text;
+    state.input = text;
+    localStorage.setItem("xmd.input", text);
+    clearLocalImageAttachments();
+    showToast(t("mdImported", { name: file.name }));
+    render();
+    source.focus();
+  } catch (error) {
+    console.warn(error);
+    showToast(t("mdImportFailed"), "error");
+  }
+}
+
+function markdownFileFromList(list) {
+  for (const item of Array.from(list || [])) {
+    const file = item instanceof File ? item : item.kind === "file" ? item.getAsFile() : null;
+    if (isMarkdownFile(file)) return file;
+  }
+  return null;
+}
+
+function isMarkdownFile(file) {
+  if (!file) return false;
+  const name = String(file.name || "").toLowerCase();
+  return name.endsWith(".md") || name.endsWith(".markdown") || file.type === "text/markdown";
+}
 
 function downloadCurrentTxt() {
   const isArticle = state.mode === "article";
@@ -593,6 +683,7 @@ function updateStaticText() {
   numbering.querySelector('[value="suffix"]').textContent = t("numberingSuffix");
   numbering.querySelector('[value="prefix"]').textContent = t("numberingPrefix");
   numbering.querySelector('[value="none"]').textContent = t("numberingNone");
+  document.querySelector("#importMarkdown").textContent = t("importMd");
   document.querySelector("#loadSample").textContent = t("sample");
   document.querySelector("#clearInput").textContent = t("clear");
   document.querySelector("#markdownSourceTitle").textContent = t("markdownSource");
@@ -624,6 +715,7 @@ function renderArticle(result) {
     <span>${t("imageCount", { count: result.assets.images.length })}</span>
     <span>${t("codeCount", { count: result.assets.codeBlocks.length })}</span>
     <span>${t("tableCount", { count: assetTables(result.assets).length })}</span>
+    <span>${t("tweetCount", { count: assetTweets(result.assets).length })}</span>
     <span>${t("readTime", { count: result.stats.readMinutes })}</span>
   `;
 
@@ -706,7 +798,8 @@ function renderPublishPanel(result) {
 
 function renderArticlePublishPanel(result) {
   const tables = assetTables(result.assets);
-  const totalAssets = result.assets.images.length + result.assets.codeBlocks.length + tables.length;
+  const tweets = assetTweets(result.assets);
+  const totalAssets = result.assets.images.length + result.assets.codeBlocks.length + tables.length + tweets.length;
   const localImages = result.assets.images.filter((image) => getLocalImageAttachment(image)).length;
   const readiness = articleReadiness(result);
   publishStatus.textContent = readinessLabel(readiness);
@@ -749,6 +842,7 @@ function renderArticlePublishPanel(result) {
           <span>${escapeHtml(t("imageCount", { count: result.assets.images.length }))}</span>
           <span>${escapeHtml(t("codeCount", { count: result.assets.codeBlocks.length }))}</span>
           <span>${escapeHtml(t("tableCount", { count: tables.length }))}</span>
+          <span>${escapeHtml(t("tweetCount", { count: tweets.length }))}</span>
           <span>${localImages} ${state.lang === "en" ? "local" : "本地"}</span>
         </div>
       </div>
@@ -820,10 +914,12 @@ function articleReadiness(result) {
   const imageCount = result.assets.images.length;
   const codeCount = result.assets.codeBlocks.length;
   const tableCount = assetTables(result.assets).length;
+  const tweetCount = assetTweets(result.assets).length;
   const localImages = result.assets.images.filter((image) => getLocalImageAttachment(image)).length;
   const remoteImages = result.assets.images.filter((image) => !getLocalImageAttachment(image)).length;
   const hasBody = Boolean(result.plain.trim());
   const hasTitle = Boolean(getDraftTitle(result));
+  const hasCover = Boolean(result.article?.cover);
 
   return [
     {
@@ -839,11 +935,26 @@ function articleReadiness(result) {
       state: hasTitle ? "done" : "warn",
     },
     {
+      label: t("cover"),
+      detail: hasCover
+        ? t("coverReady", {
+            source: coverSourceLabel(result.article.cover.source),
+            index: result.article.cover.imageIndex,
+          })
+        : t("coverMissing"),
+      state: hasCover ? "done" : "warn",
+    },
+    {
       label: t("assets"),
-      detail: imageCount || codeCount || tableCount
-        ? t("assetsReady", { images: imageCount, codes: codeCount, tables: tableCount, local: localImages })
+      detail: imageCount || codeCount || tableCount || tweetCount
+        ? t("assetsReady", { images: imageCount, codes: codeCount, tables: tableCount, tweets: tweetCount, local: localImages })
         : t("noAssets"),
       state: remoteImages ? "warn" : "done",
+    },
+    {
+      label: t("embeds"),
+      detail: tweetCount ? t("embedsReady", { count: tweetCount }) : t("noEmbeds"),
+      state: "done",
     },
     {
       label: t("pack"),
@@ -915,7 +1026,7 @@ function readinessLabel(items) {
 }
 
 function getDraftTitle(result) {
-  return stringMeta(result.meta, "title") || firstMarkdownHeading(state.input) || "";
+  return result.article?.title || stringMeta(result.meta, "title") || stringMeta(result.meta, "标题") || firstMarkdownHeading(state.input) || "";
 }
 
 function firstMarkdownHeading(markdown) {
@@ -940,6 +1051,16 @@ function normalizeTags(value) {
 
 function assetTables(assets) {
   return Array.isArray(assets?.tables) ? assets.tables : [];
+}
+
+function assetTweets(assets) {
+  return Array.isArray(assets?.tweetEmbeds) ? assets.tweetEmbeds : [];
+}
+
+function coverSourceLabel(source) {
+  if (source === "frontmatter") return state.lang === "en" ? "frontmatter" : "frontmatter";
+  if (source === "first-image") return state.lang === "en" ? "first image" : "首图";
+  return source || (state.lang === "en" ? "image" : "图片");
 }
 
 function t(key, values = {}) {
@@ -1139,6 +1260,12 @@ function buildArticleManifest(
   const lines = [
     "# X Article Pack",
     "",
+    "## Article Metadata",
+    "",
+    `- Title: ${result.article?.title || "Missing"}`,
+    `- Cover: ${result.article?.cover ? `Image ${result.article.cover.imageIndex} (${result.article.cover.url})` : "Missing"}`,
+    `- Tweet embeds: ${assetTweets(result.assets).length}`,
+    "",
     "## Publish Flow",
     "",
     "1. Paste `article.txt` or rich-copy `article.html` content into X Articles.",
@@ -1193,6 +1320,15 @@ function buildArticleManifest(
     lines.push("No tables.");
   }
 
+  lines.push("", "## Tweet Embeds", "");
+  if (assetTweets(result.assets).length) {
+    assetTweets(result.assets).forEach((tweet) => {
+      lines.push(`${tweet.index}. ${tweet.url}`);
+    });
+  } else {
+    lines.push("No tweet embeds.");
+  }
+
   if (packNotes.imageUrlFallbacks.length || packNotes.codeErrors.length || packNotes.tableErrors.length) {
     lines.push("", "## Pack Notes", "");
     packNotes.imageUrlFallbacks.forEach(({ image, reason }) => {
@@ -1214,7 +1350,8 @@ function renderAssets(assets) {
   const section = document.createElement("section");
   section.className = "asset-section";
   const tables = assetTables(assets);
-  const totalAssets = assets.images.length + assets.codeBlocks.length + tables.length;
+  const tweets = assetTweets(assets);
+  const totalAssets = assets.images.length + assets.codeBlocks.length + tables.length + tweets.length;
   section.innerHTML = `
     <div class="asset-section-head">
       <div>
@@ -1389,6 +1526,42 @@ function renderAssets(assets) {
     section.appendChild(group);
   }
 
+  if (tweets.length) {
+    const group = document.createElement("div");
+    group.className = "asset-group";
+    group.innerHTML = `<h4>${escapeHtml(t("tweetEmbeds"))}</h4>`;
+
+    tweets.forEach((tweet) => {
+      const item = document.createElement("article");
+      item.className = "asset-card tweet-asset";
+      item.innerHTML = `
+        <div class="tweet-preview">
+          <span>X</span>
+          <strong>${escapeHtml(t("tweetEmbed", { index: tweet.index }))}</strong>
+        </div>
+        <div class="asset-body">
+          <strong>${escapeHtml(t("tweetEmbed", { index: tweet.index }))}</strong>
+          <p>${escapeHtml(tweet.url)}</p>
+          <small>${escapeHtml(t("tweetEmbedDesc"))}</small>
+          <div class="asset-actions">
+            <button class="ghost small" type="button" data-action="copy-tweet-url">${escapeHtml(t("copyUrl"))}</button>
+            <button class="ghost small" type="button" data-action="open-tweet">${escapeHtml(t("open"))}</button>
+          </div>
+        </div>
+      `;
+
+      item
+        .querySelector('[data-action="copy-tweet-url"]')
+        .addEventListener("click", () => copyText(tweet.url, t("copiedTweetUrl"), t("copyFailed")));
+      item.querySelector('[data-action="open-tweet"]').addEventListener("click", () => {
+        openExternalUrl(tweet.url, t("externalOpenFallback"));
+      });
+      group.appendChild(item);
+    });
+
+    section.appendChild(group);
+  }
+
   return section;
 }
 
@@ -1430,6 +1603,13 @@ function removeLocalImage(image) {
   localImageAttachments.delete(key);
   showToast(t("localImageRemoved"));
   render();
+}
+
+function clearLocalImageAttachments() {
+  localImageAttachments.forEach((attachment) => {
+    if (attachment?.previewUrl) URL.revokeObjectURL(attachment.previewUrl);
+  });
+  localImageAttachments.clear();
 }
 
 async function copyImageAsset(image) {

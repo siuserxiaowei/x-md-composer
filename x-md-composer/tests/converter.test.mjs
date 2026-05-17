@@ -204,6 +204,49 @@ assert.equal(assetMetadataArticle.plain.includes("[图片 1: Chart]"), true);
 assert.equal(assetMetadataArticle.plain.includes("[图片 2: Chart]"), true);
 assert.equal(assetMetadataArticle.plain.includes("[图片 3: Inline data]"), true);
 
+const articleMetadata = convertLongform(`---
+标题: 中文标题
+封面: ./cover.png
+---
+
+# Fallback title
+
+Intro paragraph.
+
+![Body image](./body.png)
+
+https://x.com/example/status/1234567890123456789
+
+\`\`\`text
+https://x.com/not-a-tweet/status/1
+\`\`\`
+`);
+
+assert.equal(articleMetadata.article.title, "中文标题");
+assert.equal(articleMetadata.article.titleSource, "frontmatter");
+assert.equal(articleMetadata.article.cover.url, "./cover.png");
+assert.equal(articleMetadata.article.cover.source, "frontmatter");
+assert.equal(articleMetadata.article.cover.imageIndex, 1);
+assert.equal(articleMetadata.assets.images.length, 2);
+assert.equal(articleMetadata.assets.images[0].role, "cover");
+assert.equal(articleMetadata.assets.images[0].safeLabel, "cover");
+assert.equal(articleMetadata.assets.images[1].role, "body");
+assert.equal(articleMetadata.assets.tweetEmbeds.length, 1);
+assert.equal(articleMetadata.assets.tweetEmbeds[0].url, "https://x.com/example/status/1234567890123456789");
+assert.equal(articleMetadata.assets.tweetEmbeds[0].index, 1);
+assert.equal(articleMetadata.assets.tweetEmbeds[0].safeLabel, "tweet-1");
+
+const inferredArticleMetadata = convertLongform(`# H1 Title
+
+![Hero image](https://example.com/hero.jpg)
+`);
+
+assert.equal(inferredArticleMetadata.article.title, "H1 Title");
+assert.equal(inferredArticleMetadata.article.titleSource, "heading");
+assert.equal(inferredArticleMetadata.article.cover.url, "https://example.com/hero.jpg");
+assert.equal(inferredArticleMetadata.article.cover.source, "first-image");
+assert.equal(inferredArticleMetadata.article.cover.imageIndex, 1);
+
 const codeMetadataArticle = convertLongform(`\`\`\`typescript
 const value: string = "ok";
 \`\`\`

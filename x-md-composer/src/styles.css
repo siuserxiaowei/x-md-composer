@@ -919,7 +919,8 @@ input {
 
 .asset-preview,
 .code-shot,
-.table-preview {
+.table-preview,
+.tweet-preview {
   min-height: 100px;
   border-radius: 6px;
   overflow: hidden;
@@ -1056,6 +1057,36 @@ input {
   background: var(--panel-muted);
   color: var(--ink);
   font-weight: 780;
+}
+
+.tweet-preview {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+  color: #ffffff;
+  background:
+    linear-gradient(135deg, #111820, #263443),
+    var(--chrome);
+}
+
+.tweet-preview span {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 14px;
+  font-weight: 820;
+}
+
+.tweet-preview strong {
+  max-width: 90%;
+  color: #d9e6ff;
+  font-size: 12px;
+  text-align: center;
 }
 
 .preview-failed .asset-preview {
@@ -1258,7 +1289,8 @@ input {
 
   .asset-preview,
   .code-shot,
-  .table-preview {
+  .table-preview,
+  .tweet-preview {
     min-height: 154px;
   }
 
