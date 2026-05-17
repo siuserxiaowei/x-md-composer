@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1",
     "convert": "node scripts/convert.mjs",
-    "test": "node tests/converter.test.mjs"
+    "test": "node tests/converter.test.mjs",
+    "test:extension": "node extension/tests/markdown-renderer.test.mjs"
   },
   "dependencies": {
     "jszip": "^3.10.1",

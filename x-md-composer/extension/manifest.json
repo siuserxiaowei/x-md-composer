@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "X Markdown Composer Helper",
+  "version": "0.1.0",
+  "description": "Import Markdown into X Articles without X API tokens.",
+  "permissions": ["clipboardWrite"],
+  "host_permissions": ["https://x.com/*", "https://twitter.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://x.com/compose/article*", "https://twitter.com/compose/article*"],
+      "js": ["renderer.js", "content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
