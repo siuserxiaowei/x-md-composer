@@ -634,8 +634,7 @@ async function importMarkdownDraft(file) {
 
 function importAssetFolder(files) {
   if (!files?.length) return;
-  clearLocalAssetLibrary();
-  const imageFiles = Array.from(files || []).filter(addLocalAssetFile);
+  const imageFiles = Array.from(files || []).filter(isImageFile);
 
   if (!imageFiles.length) {
     showToast(t("assetsImportFailed"), "error");
@@ -643,6 +642,8 @@ function importAssetFolder(files) {
     return;
   }
 
+  clearLocalAssetLibrary();
+  imageFiles.forEach(addLocalAssetFile);
   showToast(t("assetsImported", { count: imageFiles.length }));
   render();
 }
@@ -1716,7 +1717,7 @@ function addLocalAssetFile(file) {
 
 function localAssetKeys(file) {
   const path = String(file.webkitRelativePath || file.name || "").replaceAll("\\", "/");
-  return localAssetLookupKeys(path);
+  return localAssetLookupKeys(path, { stripUrlParts: false });
 }
 
 function getAutoMatchedImageFile(image) {
@@ -1726,10 +1727,11 @@ function getAutoMatchedImageFile(image) {
     .find(Boolean) || null;
 }
 
-function localAssetLookupKeys(value) {
+function localAssetLookupKeys(value, { stripUrlParts = true } = {}) {
   const raw = String(value || "");
-  const normalized = normalizeAssetPath(raw);
-  const decoded = normalizeAssetPath(decodeURIComponentSafe(raw));
+  const comparable = stripUrlParts ? stripAssetUrlParts(raw) : raw;
+  const normalized = normalizeAssetPath(comparable);
+  const decoded = normalizeAssetPath(decodeURIComponentSafe(comparable));
   const basename = normalized.split("/").pop() || "";
   const decodedBasename = normalizeAssetPath(decodeURIComponentSafe(basename));
   const candidates = [
@@ -1755,7 +1757,6 @@ function normalizeAssetPath(value) {
   return String(value || "")
     .trim()
     .replaceAll("\\", "/")
-    .replace(/[?#].*$/, "")
     .replace(/^(\.\/)+/, "")
     .replace(/^\/+/, "")
     .replace(/\/+/g, "/")
@@ -1764,6 +1765,10 @@ function normalizeAssetPath(value) {
 
 function stripAssetsPrefix(value) {
   return normalizeAssetPath(value).replace(/^assets\//, "");
+}
+
+function stripAssetUrlParts(value) {
+  return String(value || "").replace(/[?#].*$/, "");
 }
 
 function decodeURIComponentSafe(value) {
