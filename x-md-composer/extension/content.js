@@ -5,12 +5,14 @@
   globalThis.XmdHelperLoaded = true;
 
   const renderer = globalThis.XmdHelperRenderer;
-  if (!renderer) return;
+  const core = globalThis.XmdHelperCore;
+  if (!renderer || !core) return;
 
   const state = {
     html: "",
     plain: "",
   };
+  const editorTracker = core.createEditorTracker(document);
 
   const button = document.createElement("button");
   button.type = "button";
@@ -70,6 +72,8 @@
 
   modal.append(header, notice, textarea, actions, message);
   document.documentElement.append(button, modal);
+  document.addEventListener("focusin", editorTracker.handleFocusIn, true);
+  editorTracker.handleFocusIn({ target: document.activeElement });
 
   button.addEventListener("click", () => {
     modal.hidden = !modal.hidden;
@@ -95,7 +99,7 @@
       return;
     }
 
-    const copied = await writeClipboard(state.html, state.plain);
+    const copied = await core.writeClipboard(state.html, state.plain);
     if (copied === "rich") {
       setMessage("Could not insert directly. Rich HTML is copied; paste it into the X editor.");
     } else if (copied === "plain") {
@@ -113,7 +117,7 @@
     }
 
     if (markdown) renderCurrent(markdown);
-    const copied = await writeClipboard(state.html, state.plain);
+    const copied = await core.writeClipboard(state.html, state.plain);
     if (copied === "rich") {
       setMessage("Rich HTML copied. Paste it into the X editor.");
     } else if (copied === "plain") {
@@ -139,22 +143,8 @@
     message.textContent = value;
   }
 
-  function findEditor() {
-    const active = document.activeElement;
-    const activeEditor = active?.closest?.('[contenteditable="true"]');
-    if (activeEditor) return activeEditor;
-
-    const editors = Array.from(document.querySelectorAll('[contenteditable="true"]'));
-    return editors.find(isVisibleElement) || editors[0] || null;
-  }
-
-  function isVisibleElement(element) {
-    const rect = element.getBoundingClientRect();
-    return rect.width > 0 && rect.height > 0;
-  }
-
   function insertIntoEditor(html, plain) {
-    const editor = findEditor();
+    const editor = editorTracker.findEditor();
     if (!editor) return false;
 
     try {
@@ -180,28 +170,5 @@
       editor.dispatchEvent(new Event("input", { bubbles: true, cancelable: true }));
     }
     editor.dispatchEvent(new Event("change", { bubbles: true, cancelable: true }));
-  }
-
-  async function writeClipboard(html, plain) {
-    try {
-      if (navigator.clipboard?.write && typeof ClipboardItem !== "undefined") {
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            "text/html": new Blob([html], { type: "text/html" }),
-            "text/plain": new Blob([plain], { type: "text/plain" }),
-          }),
-        ]);
-        return "rich";
-      }
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(plain || html);
-        return "plain";
-      }
-    } catch (_error) {
-      return false;
-    }
-
-    return false;
   }
 })();
