@@ -1224,6 +1224,8 @@ async function createArticlePack(result) {
   };
   zip.file("article.txt", `${result.plain}\n`);
   zip.file("article.html", `<!doctype html><html><meta charset="utf-8"><body>${result.html}</body></html>\n`);
+  zip.file("metadata.json", buildArticleMetadataJson(result));
+  zip.file("publish-checklist.md", buildPublishChecklist(result));
 
   for (const block of result.assets.codeBlocks) {
     const textPath = codeTextPath(block);
@@ -1394,6 +1396,74 @@ function buildArticleManifest(
 
   lines.push("");
   return `${lines.join("\n")}\n`;
+}
+
+function buildArticleMetadataJson(result) {
+  return `${JSON.stringify(
+    {
+      title: result.article?.title || "",
+      cover: result.article?.cover || null,
+      stats: result.stats,
+      images: result.assets.images,
+      codeBlocks: result.assets.codeBlocks.map((block) => ({
+        index: block.index,
+        lang: block.lang,
+        safeLabel: block.safeLabel,
+        suggestedFilename: block.suggestedFilename,
+      })),
+      tables: assetTables(result.assets).map((table) => ({
+        alignments: table.alignments,
+        headers: table.headers,
+        index: table.index,
+        rows: table.rows,
+        safeLabel: table.safeLabel,
+        suggestedFilename: table.suggestedFilename,
+      })),
+      tweetEmbeds: assetTweets(result.assets),
+      generatedAt: new Date().toISOString(),
+      workflow: "manual-x-article",
+    },
+    null,
+    2,
+  )}\n`;
+}
+
+function buildPublishChecklist(result) {
+  const lines = [
+    "# Publish Checklist",
+    "",
+    `Draft: ${result.article?.title || "Untitled X Article"}`,
+    "",
+    "- [ ] Paste `article.txt` or rich-copy `article.html` into X Articles.",
+    "- [ ] Confirm the article title in X.",
+  ];
+
+  if (result.article?.cover) {
+    lines.push(`- [ ] Upload cover image ${result.article.cover.imageIndex}: ${result.article.cover.url}`);
+  } else {
+    lines.push("- [ ] Decide whether this article needs a cover image.");
+  }
+
+  if (result.assets.images.length) {
+    lines.push(`- [ ] Upload or verify ${result.assets.images.length} image asset(s).`);
+  }
+  if (result.assets.codeBlocks.length) {
+    lines.push(`- [ ] Add ${result.assets.codeBlocks.length} code screenshot(s) from \`assets/code/\`.`);
+  }
+  if (assetTables(result.assets).length) {
+    lines.push(`- [ ] Add ${assetTables(result.assets).length} table screenshot(s) from \`assets/tables/\`.`);
+  }
+  if (assetTweets(result.assets).length) {
+    lines.push(`- [ ] Confirm ${assetTweets(result.assets).length} tweet embed link(s) render correctly in X.`);
+  }
+
+  lines.push(
+    "- [ ] Preview the article in X.",
+    "- [ ] Publish manually from the official X UI.",
+    "",
+  );
+
+  return lines.join("\n");
 }
 
 function renderAssets(assets) {

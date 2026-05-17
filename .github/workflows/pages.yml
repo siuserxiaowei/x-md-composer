@@ -36,9 +36,9 @@ jobs:
         working-directory: x-md-composer
         run: npm ci
 
-      - name: Test converter
+      - name: Test converter and extension
         working-directory: x-md-composer
-        run: npm test
+        run: npm run test:all
 
       - name: Build static site
         working-directory: x-md-composer

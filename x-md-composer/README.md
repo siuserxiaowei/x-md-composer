@@ -47,7 +47,7 @@ The app stores the current draft and mode in local browser storage. X credential
 
 Markdown import and metadata:
 
-- Use `Import .md` to load `.md`, `.markdown`, `text/markdown`, or plain-text Markdown files.
+- Use `Import .md` to load `.md`, `.markdown`, or `text/markdown` files.
 - Dragging a Markdown file onto the page imports it into the editor. Dropping onto an image card remains reserved for attaching a local image to that asset.
 - Article title comes from frontmatter `title` / `标题`, then falls back to the first Markdown heading.
 - Article cover comes from frontmatter `cover` / `封面`, then falls back to the first image when no cover is declared.
@@ -55,8 +55,8 @@ Markdown import and metadata:
 
 Local image workflow:
 
-- Current builds let you attach local files on individual image cards; those local files are preferred in ZIP packs.
-- Builds that include asset-folder import can match Markdown image paths such as `./assets/hero.png` to a selected local folder by normalized path or filename. This is a local packing convenience, not a media upload to X.
+- You can attach local files on individual image cards; those local files are preferred in ZIP packs.
+- `Import asset folder` can match Markdown image paths such as `./assets/hero.png` to a selected local folder by normalized path or filename. This is a local packing convenience, not a media upload to X.
 - Local asset matching should be checked in the publish panel before posting, especially when two files share the same basename.
 
 Image handling has browser limits:
@@ -129,6 +129,8 @@ Article pack:
 
 - `article.txt`: paste-friendly plain text body.
 - `article.html`: rich text backup.
+- `metadata.json`: title, cover, image, table, tweet embed, and generation metadata for tooling or review.
+- `publish-checklist.md`: a concise manual checklist for pasting the body, uploading media, confirming tweet embeds, previewing, and publishing yourself.
 - `manifest.md`: stats, file list, image list, and code-block list.
 - `assets/code/*.txt`: original fenced code block text.
 - `assets/code/*.png`: browser-rendered PNG screenshot for each code block.
@@ -137,13 +139,6 @@ Article pack:
 - `assets/tables/*.png`: browser-rendered PNG screenshot for each table.
 - `assets/images/*`: local attachments or fetched image copies when available.
 - `assets/images/*.url.txt`: original image URL when the remote site blocks browser fetch.
-
-Task 3 source builds may also include:
-
-- `metadata.json`: title, cover, image, table, tweet embed, and generation metadata for tooling or review.
-- `publish-checklist.md`: a concise manual checklist for pasting the body, uploading media, confirming tweet embeds, previewing, and publishing yourself.
-
-If those files are absent in an older build, use `manifest.md` as the manual checklist.
 
 Thread pack:
 
