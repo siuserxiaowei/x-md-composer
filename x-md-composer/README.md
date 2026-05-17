@@ -4,17 +4,27 @@ Markdown to X Articles and X thread composer for no-token publishing.
 
 The project prepares paste-ready content and downloadable publishing assets in the browser. It does not publish through the X API, store API keys, or automate your logged-in X session.
 
+## Product Paths
+
+| Path | Use it for | X access | Limits |
+| --- | --- | --- | --- |
+| Web app | Safest default workflow: static browser app for converting Markdown, copying bodies, and building manual publish packs. | No account access, no X API, no tokens. | Manual publish only: you paste into X and upload media yourself. |
+| Extension helper | Optional helper inside the X Article UI when the extension is installed. | No X API and no stored X credentials; it works in the logged-in page you already opened. | Depends on X page structure. The MVP can try editor insertion or clipboard fallback, but does not upload media, click publish, schedule, or manage accounts. |
+| API mode | Not implemented. | Would require a backend, X developer app, user authorization, and secret handling. | Only needed for auto-posting, media upload through X, scheduling, or account connection. |
+
 ## Recommended Manual Workflow
 
 1. Open the local app or hosted static site.
-2. Paste or write Markdown in the editor.
-3. Choose Article mode for one long-form X Article, or Thread mode for multiple X posts.
-4. Copy the prepared body.
-5. Open X in a normal browser tab and paste into the official composer.
-6. Upload images or code screenshots manually from the asset list or downloaded publish pack.
-7. Review in X, then publish yourself.
+2. Paste or write Markdown, import a `.md` / `.markdown` file, or drag a Markdown file onto the page.
+3. Optionally set frontmatter metadata: `title` or `标题` for the article title, and `cover` or `封面` for the cover image.
+4. Choose Article mode for one long-form X Article, or Thread mode for multiple X posts.
+5. Attach local images from asset cards, or use the asset-folder matching workflow when it is available in your build.
+6. Copy the prepared body or download the publish pack.
+7. Open X in a normal browser tab and paste into the official composer.
+8. Upload images, code screenshots, and table screenshots manually from the asset list or downloaded publish pack.
+9. Confirm detected tweet embeds in X, preview, then publish yourself.
 
-This workflow is intentionally manual. It avoids X API tokens, developer app setup, write permissions, post caps, and media upload API steps. The tradeoff is that it cannot schedule, auto-publish, prefill the X composer, or attach media for you.
+This workflow is intentionally manual. It avoids X API tokens, developer app setup, write permissions, post caps, and media upload API steps. The tradeoff is that it cannot schedule, auto-publish, or attach media for you. The optional extension helper can reduce copy/paste friction, but final review and publishing still happen in X.
 
 ## Online Static Site
 
@@ -34,6 +44,20 @@ npm run dev
 Then open the local URL printed by Vite.
 
 The app stores the current draft and mode in local browser storage. X credentials and API tokens are not requested.
+
+Markdown import and metadata:
+
+- Use `Import .md` to load `.md`, `.markdown`, `text/markdown`, or plain-text Markdown files.
+- Dragging a Markdown file onto the page imports it into the editor. Dropping onto an image card remains reserved for attaching a local image to that asset.
+- Article title comes from frontmatter `title` / `标题`, then falls back to the first Markdown heading.
+- Article cover comes from frontmatter `cover` / `封面`, then falls back to the first image when no cover is declared.
+- X/Twitter status links such as `https://x.com/user/status/123` or `https://twitter.com/user/status/123` are detected as tweet embeds and listed for manual confirmation. X decides whether pasted links render as embed cards.
+
+Local image workflow:
+
+- Current builds let you attach local files on individual image cards; those local files are preferred in ZIP packs.
+- Builds that include asset-folder import can match Markdown image paths such as `./assets/hero.png` to a selected local folder by normalized path or filename. This is a local packing convenience, not a media upload to X.
+- Local asset matching should be checked in the publish panel before posting, especially when two files share the same basename.
 
 Image handling has browser limits:
 
@@ -114,12 +138,37 @@ Article pack:
 - `assets/images/*`: local attachments or fetched image copies when available.
 - `assets/images/*.url.txt`: original image URL when the remote site blocks browser fetch.
 
+Task 3 source builds may also include:
+
+- `metadata.json`: title, cover, image, table, tweet embed, and generation metadata for tooling or review.
+- `publish-checklist.md`: a concise manual checklist for pasting the body, uploading media, confirming tweet embeds, previewing, and publishing yourself.
+
+If those files are absent in an older build, use `manifest.md` as the manual checklist.
+
 Thread pack:
 
 - `thread.txt`: each post in order, separated by dividers.
 - `manifest.md`: post count and max-character checklist.
 
 The CLI can emit a manifest with `--format=manifest`, but it does not create ZIP files or PNG assets because those require browser features.
+
+## Optional Extension Helper
+
+The extension helper is separate from the static web app. It is optional and only useful when you want help inside the official X Article composer.
+
+When the helper is included in your checkout or release package:
+
+1. Install it as an unpacked Chrome extension during development, or from the Chrome Web Store after a reviewed release exists.
+2. Open an X Article composer page.
+3. Use the helper to import Markdown, attempt rich insertion into the editor, or copy HTML/plain text as a fallback.
+4. Upload media manually and publish manually in X.
+
+MVP limitations:
+
+- It has no X API integration and should not request API keys.
+- It depends on X's current page structure and editor behavior, so direct insertion can break when X changes the UI.
+- Clipboard fallback is expected for some browsers, permissions, or editor states.
+- It does not auto-publish, click the publish button, upload media, schedule posts, or connect accounts.
 
 ## X API Limitations
 
