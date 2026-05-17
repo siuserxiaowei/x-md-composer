@@ -1,0 +1,157 @@
+.xmd-helper-button {
+  position: fixed;
+  right: 20px;
+  bottom: 24px;
+  z-index: 2147483647;
+  width: 52px;
+  height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 50%;
+  background: #111111;
+  color: #ffffff;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  cursor: pointer;
+  font: 700 14px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.xmd-helper-button:hover,
+.xmd-helper-button:focus-visible {
+  background: #005f73;
+  outline: 3px solid rgba(10, 147, 150, 0.32);
+  outline-offset: 3px;
+}
+
+.xmd-helper-modal {
+  position: fixed;
+  right: 20px;
+  bottom: 88px;
+  z-index: 2147483647;
+  box-sizing: border-box;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 120px));
+  padding: 16px;
+  overflow: auto;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.24);
+  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.xmd-helper-modal[hidden] {
+  display: none;
+}
+
+.xmd-helper-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.xmd-helper-title {
+  margin: 0;
+  color: #111827;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.xmd-helper-close {
+  min-width: 56px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+  font: 600 13px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.xmd-helper-notice {
+  margin: 0 0 12px;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.xmd-helper-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 220px;
+  resize: vertical;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fbfdff;
+  color: #111827;
+  font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+.xmd-helper-textarea:focus {
+  border-color: #0a9396;
+  outline: 3px solid rgba(10, 147, 150, 0.18);
+}
+
+.xmd-helper-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.xmd-helper-primary,
+.xmd-helper-secondary {
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font: 700 13px/1 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.xmd-helper-primary {
+  border: 1px solid #111111;
+  background: #111111;
+  color: #ffffff;
+}
+
+.xmd-helper-primary:hover,
+.xmd-helper-primary:focus-visible {
+  background: #005f73;
+  border-color: #005f73;
+}
+
+.xmd-helper-secondary {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+}
+
+.xmd-helper-secondary:hover,
+.xmd-helper-secondary:focus-visible,
+.xmd-helper-close:hover,
+.xmd-helper-close:focus-visible {
+  border-color: #0a9396;
+  outline: 3px solid rgba(10, 147, 150, 0.18);
+}
+
+.xmd-helper-message {
+  min-height: 20px;
+  margin: 10px 0 0;
+  color: #005f73;
+  font-size: 13px;
+}
+
+@media (max-width: 520px) {
+  .xmd-helper-button {
+    right: 16px;
+    bottom: 18px;
+  }
+
+  .xmd-helper-modal {
+    right: 16px;
+    bottom: 82px;
+  }
+}
