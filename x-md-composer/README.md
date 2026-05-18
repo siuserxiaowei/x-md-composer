@@ -102,6 +102,19 @@ Article mode is for X Articles or other long-form editors where you want one com
 - Fenced code blocks become `[代码块 N: lang]` placeholders and are listed as separate assets.
 - Manual thread break comments are ignored as post breaks in Article mode.
 
+### Smart Formatting
+
+Article mode applies a deterministic, local editing pass before rich copy:
+
+- Lead lines ending in `：` become bold.
+- Numbered standalone resource names become section headings.
+- Field labels such as `网址：`, `推荐理由：`, `亮点：`, and `场景：` become bold.
+- Common AI/tool/product terms and key phrases become bold.
+- `我的结论：`, `核心观点：`, `引用：`, and quoted sentences become blockquotes.
+- Bare domains become safe HTTPS links.
+
+Explicit Markdown wins. Use `**manual bold**`, `> quote`, headings, and links when you want exact control.
+
 ## Thread Mode
 
 Thread mode is for standard X post sequences.
