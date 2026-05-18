@@ -110,6 +110,16 @@ const I18N = {
     articleActionDesc: "先复制正文，再处理素材；ZIP 是可回退的完整发布包。",
     threadActionGood: "全部在当前长度限制内；可以整体复制或逐条复制。",
     threadActionInvalid: "{count} 条超过当前上限，请调整长度。",
+    smartFormat: "智能排版",
+    smartFormatDesc: "自动识别开头、字段、重点词、引用和链接；复制正文时已应用这些判断。",
+    smartFormatTotal: "{count} 处自动处理",
+    smartFormatEmpty: "暂无自动排版判断",
+    smartFormatLead: "开头",
+    smartFormatSection: "小节",
+    smartFormatField: "字段",
+    smartFormatInline: "重点",
+    smartFormatQuote: "引用",
+    smartFormatLink: "链接",
     copyBody: "复制正文",
     copyPlain: "复制纯文本",
     downloadTxt: "下载 TXT",
@@ -281,6 +291,16 @@ const I18N = {
     articleActionDesc: "Copy the body first, then handle assets; ZIP is the complete fallback pack.",
     threadActionGood: "All posts fit the current limit; copy as a whole or one by one.",
     threadActionInvalid: "{count} posts exceed the current limit.",
+    smartFormat: "Smart formatting",
+    smartFormatDesc: "Detects leads, fields, key terms, quotes, and links; these decisions are already applied when copying the body.",
+    smartFormatTotal: "{count} auto decision(s)",
+    smartFormatEmpty: "No smart formatting decisions yet",
+    smartFormatLead: "Lead",
+    smartFormatSection: "Section",
+    smartFormatField: "Field",
+    smartFormatInline: "Key term",
+    smartFormatQuote: "Quote",
+    smartFormatLink: "Link",
     copyBody: "Copy body",
     copyPlain: "Copy plain",
     downloadTxt: "Download TXT",
@@ -403,6 +423,17 @@ const I18N = {
     assetsImportFailed: "Asset import failed. Choose a folder with images.",
   },
 };
+
+const FORMAT_KIND_LABEL_KEYS = {
+  lead: "smartFormatLead",
+  section: "smartFormatSection",
+  field: "smartFormatField",
+  inline: "smartFormatInline",
+  quote: "smartFormatQuote",
+  link: "smartFormatLink",
+};
+const FORMAT_KIND_ORDER = Object.keys(FORMAT_KIND_LABEL_KEYS);
+const FORMAT_DECISION_LIMIT = 8;
 
 app.innerHTML = `
   <main class="shell">
@@ -866,6 +897,7 @@ function renderArticlePublishPanel(result) {
     </div>
 
     ${renderReadinessList(readiness)}
+    ${renderFormatReport(result.formatReport)}
 
     <div class="publish-block command-panel">
       <div>
@@ -1061,6 +1093,55 @@ function renderReadinessList(items) {
         .join("")}
     </div>
   `;
+}
+
+function renderFormatReport(report) {
+  const counts = report?.counts || {};
+  const total = Number(report?.summary?.total || 0);
+  const items = Array.isArray(report?.items) ? report.items : [];
+  const chips = FORMAT_KIND_ORDER.map((kind) => {
+    const count = Number(counts[kind] || 0);
+    return `
+      <span class="format-chip${count ? "" : " is-empty"}">
+        <strong>${escapeHtml(formatKindLabel(kind))}</strong>
+        <span>${count}</span>
+      </span>
+    `;
+  }).join("");
+  const decisions = items
+    .slice(0, FORMAT_DECISION_LIMIT)
+    .map((item) => {
+      const line = Number.isFinite(Number(item.line)) ? `L${Number(item.line)}` : "L-";
+      return `
+        <li>
+          <span class="format-line">${escapeHtml(line)}</span>
+          <span class="format-kind">${escapeHtml(formatKindLabel(item.kind))}</span>
+          <span class="format-text">${escapeHtml(item.text || item.href || "")}</span>
+        </li>
+      `;
+    })
+    .join("");
+
+  return `
+    <section class="format-report" aria-label="${escapeAttribute(t("smartFormat"))}">
+      <div class="format-report-head">
+        <h3>${escapeHtml(t("smartFormat"))}</h3>
+        <span>${escapeHtml(t("smartFormatTotal", { count: total }))}</span>
+      </div>
+      <p>${escapeHtml(t("smartFormatDesc"))}</p>
+      ${total ? `<div class="format-chips">${chips}</div>` : ""}
+      ${
+        total
+          ? `<ol class="format-decisions">${decisions}</ol>`
+          : `<div class="format-empty">${escapeHtml(t("smartFormatEmpty"))}</div>`
+      }
+    </section>
+  `;
+}
+
+function formatKindLabel(kind) {
+  const key = FORMAT_KIND_LABEL_KEYS[kind];
+  return key ? t(key) : String(kind || "");
 }
 
 function renderWorkflowPills(items) {
@@ -1420,6 +1501,7 @@ function buildArticleMetadataJson(result) {
         suggestedFilename: table.suggestedFilename,
       })),
       tweetEmbeds: assetTweets(result.assets),
+      formatReport: result.formatReport || null,
       generatedAt: new Date().toISOString(),
       workflow: "manual-x-article",
     },
@@ -1437,6 +1519,10 @@ function buildPublishChecklist(result) {
     "- [ ] Paste `article.txt` or rich-copy `article.html` into X Articles.",
     "- [ ] Confirm the article title in X.",
   ];
+
+  if (result.formatReport?.summary?.total) {
+    lines.push(`- [ ] Review ${result.formatReport.summary.total} smart formatting decision(s).`);
+  }
 
   if (result.article?.cover) {
     lines.push(`- [ ] Upload cover image ${result.article.cover.imageIndex}: ${result.article.cover.url}`);
