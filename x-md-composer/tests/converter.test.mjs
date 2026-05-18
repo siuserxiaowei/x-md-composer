@@ -124,7 +124,11 @@ const formatReport = convertLongform(`最近有个很明显的感觉：
 我的结论：信息源不需要很多，关键是筛选和整理。
 `).formatReport;
 
-assert.equal(formatReport.summary.total, 8);
+const formatReportCountTotal = Object.values(formatReport.counts).reduce((sum, count) => sum + count, 0);
+
+assert.equal(formatReport.summary.total, 9);
+assert.equal(formatReport.summary.total, formatReport.items.length);
+assert.equal(formatReport.summary.total, formatReportCountTotal);
 assert.equal(formatReport.counts.lead, 1);
 assert.equal(formatReport.counts.section, 1);
 assert.equal(formatReport.counts.field, 2);
@@ -133,6 +137,14 @@ assert.equal(formatReport.counts.quote, 1);
 assert.equal(formatReport.counts.link, 1);
 assert.equal(formatReport.items.some((item) => item.kind === "quote" && item.text.includes("我的结论")), true);
 assert.equal(formatReport.items.some((item) => item.kind === "inline" && item.text === "高质量信息源"), true);
+
+const manualFormattingReport = convertLongform(`This is **manual** and [docs](https://example.com).
+
+## 1. Existing Heading
+`).formatReport;
+
+assert.equal(manualFormattingReport.summary.total, 0);
+assert.equal(manualFormattingReport.summary.hasSmartFormatting, false);
 
 const articleWithMeta = convertLongform(`---
 title: Article From Frontmatter
