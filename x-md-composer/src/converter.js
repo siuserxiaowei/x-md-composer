@@ -165,6 +165,7 @@ export function convertLongform(markdown) {
     markdown: article.markdown,
     article: resolveArticleMetadata(markdown, sourceMeta.attributes, article.assets),
     html,
+    formatReport: analyzeArticleFormatting(article.markdown),
     plain,
     meta: sourceMeta.attributes,
     assets: article.assets,
@@ -173,6 +174,22 @@ export function convertLongform(markdown) {
       weightedLength: weightedLength(plain),
       paragraphs,
       readMinutes: Math.max(1, Math.ceil(plain.length / 700)),
+    },
+  };
+}
+
+export function analyzeArticleFormatting(markdown) {
+  const source = formatArticleMarkdownForHtml(markdown);
+  const items = collectArticleFormatItems(source);
+  const counts = countFormatItems(items);
+  const total = countFormatDecisionTotal(items);
+
+  return {
+    counts,
+    items,
+    summary: {
+      total,
+      hasSmartFormatting: total > 0,
     },
   };
 }
@@ -319,6 +336,105 @@ function formatArticleMarkdownForHtml(markdown) {
   text = text.replace(/@@ARTICLEHTMLCODEBLOCK(\d+)@@/g, (_match, index) => codeBlocks[Number(index)] ?? "");
 
   return text.trim();
+}
+
+function collectArticleFormatItems(markdown) {
+  const lines = String(markdown ?? "").split("\n");
+  const items = [];
+  let fence = null;
+
+  lines.forEach((line, index) => {
+    const fenceMatch = /^[ \t]{0,3}(`{3,}|~{3,})/.exec(line);
+    if (fence) {
+      if (fenceMatch && fenceMatch[1][0] === fence.marker && fenceMatch[1].length >= fence.length) {
+        fence = null;
+      }
+      return;
+    }
+    if (fenceMatch) {
+      fence = {
+        length: fenceMatch[1].length,
+        marker: fenceMatch[1][0],
+      };
+      return;
+    }
+
+    const text = line.trim();
+    if (!text) return;
+
+    const lineNumber = index + 1;
+    const isQuote = /^>\s+/.test(text);
+    const isLead = /^\*\*[^*\n]+[：:]\*\*$/.test(text);
+
+    if (/^##\s+\d{1,2}[.、]\s+/.test(text)) {
+      items.push({ kind: "section", line: lineNumber, text: text.replace(/^##\s+/, "") });
+    }
+
+    if (isQuote) {
+      items.push({ kind: "quote", line: lineNumber, text: text.replace(/^>\s+/, "").replace(/\*\*/g, "") });
+    }
+
+    if (isLead) {
+      items.push({ kind: "lead", line: lineNumber, text: text.replace(/\*\*/g, "") });
+    }
+
+    if (!isQuote && !isLead) {
+      for (const match of text.matchAll(/\*\*([^*\n]+[：:])\*\*/g)) {
+        items.push({ kind: "field", line: lineNumber, text: match[1] });
+      }
+    }
+
+    for (const match of text.matchAll(/\[([^\]\n]+)\]\((https?:\/\/[^)\s]+)\)/g)) {
+      items.push({ kind: "link", line: lineNumber, text: match[1], href: match[2] });
+    }
+
+    if (!isQuote) {
+      for (const match of text.matchAll(/\*\*([^*\n]+)\*\*/g)) {
+        if (/[：:]$/.test(match[1])) continue;
+        items.push({ kind: "inline", line: lineNumber, text: match[1] });
+      }
+    }
+  });
+
+  return dedupeFormatItems(items);
+}
+
+function dedupeFormatItems(items) {
+  const seen = new Set();
+  const unique = [];
+
+  for (const item of items) {
+    const key = `${item.kind}:${item.line}:${item.text}:${item.href ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+
+  return unique;
+}
+
+function countFormatItems(items) {
+  const counts = {
+    lead: 0,
+    section: 0,
+    field: 0,
+    inline: 0,
+    quote: 0,
+    link: 0,
+  };
+
+  for (const item of items) {
+    if (Object.prototype.hasOwnProperty.call(counts, item.kind)) {
+      counts[item.kind] += 1;
+    }
+  }
+
+  return counts;
+}
+
+function countFormatDecisionTotal(items) {
+  const fieldLines = new Set(items.filter((item) => item.kind === "field").map((item) => item.line));
+  return items.filter((item) => item.kind !== "link" || !fieldLines.has(item.line)).length;
 }
 
 function promoteNumberedArticleSections(text) {
