@@ -165,6 +165,7 @@ export function convertLongform(markdown) {
     markdown: article.markdown,
     article: resolveArticleMetadata(markdown, sourceMeta.attributes, article.assets),
     html,
+    formatReport: analyzeArticleFormatting(article.markdown),
     plain,
     meta: sourceMeta.attributes,
     assets: article.assets,
@@ -173,6 +174,21 @@ export function convertLongform(markdown) {
       weightedLength: weightedLength(plain),
       paragraphs,
       readMinutes: Math.max(1, Math.ceil(plain.length / 700)),
+    },
+  };
+}
+
+export function analyzeArticleFormatting(markdown) {
+  const { decisions } = formatArticleMarkdownForHtmlWithDecisions(markdown);
+  const items = dedupeFormatItems(decisions);
+  const counts = countFormatItems(items);
+
+  return {
+    counts,
+    items,
+    summary: {
+      total: items.length,
+      hasSmartFormatting: items.length > 0,
     },
   };
 }
@@ -302,26 +318,71 @@ export function markdownToArticleHtml(markdown) {
 }
 
 function formatArticleMarkdownForHtml(markdown) {
+  return formatArticleMarkdownForHtmlWithDecisions(markdown).markdown;
+}
+
+function formatArticleMarkdownForHtmlWithDecisions(markdown) {
   let text = prepareArticleMarkdown(markdown);
   const codeBlocks = [];
+  const decisions = [];
 
   text = replaceFencedCodeBlocks(text, ({ raw }) => {
     const index = codeBlocks.push(raw) - 1;
     return `@@ARTICLEHTMLCODEBLOCK${index}@@`;
   });
 
-  text = promoteNumberedArticleSections(text);
-  text = quoteArticleInsightLines(text);
-  text = emphasizeArticleLeadLines(text);
-  text = emphasizeArticleFieldLabels(text);
-  text = emphasizeArticleInlineHighlights(text);
-  text = linkifyBareArticleLinks(text);
+  text = promoteNumberedArticleSections(text, decisions);
+  text = quoteArticleInsightLines(text, decisions);
+  text = emphasizeArticleLeadLines(text, decisions);
+  text = emphasizeArticleFieldLabels(text, decisions);
+  text = emphasizeArticleInlineHighlights(text, decisions);
+  text = linkifyBareArticleLinks(text, decisions);
   text = text.replace(/@@ARTICLEHTMLCODEBLOCK(\d+)@@/g, (_match, index) => codeBlocks[Number(index)] ?? "");
 
-  return text.trim();
+  return {
+    decisions,
+    markdown: text.trim(),
+  };
 }
 
-function promoteNumberedArticleSections(text) {
+function dedupeFormatItems(items) {
+  const seen = new Set();
+  const unique = [];
+
+  for (const item of items) {
+    const key = `${item.kind}:${item.line}:${item.text}:${item.href ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+
+  return unique;
+}
+
+function countFormatItems(items) {
+  const counts = {
+    lead: 0,
+    section: 0,
+    field: 0,
+    inline: 0,
+    quote: 0,
+    link: 0,
+  };
+
+  for (const item of items) {
+    if (Object.prototype.hasOwnProperty.call(counts, item.kind)) {
+      counts[item.kind] += 1;
+    }
+  }
+
+  return counts;
+}
+
+function pushFormatDecision(decisions, item) {
+  if (decisions) decisions.push(item);
+}
+
+function promoteNumberedArticleSections(text, decisions = null) {
   const lines = String(text ?? "").split("\n");
 
   return lines
@@ -341,34 +402,42 @@ function promoteNumberedArticleSections(text) {
       }
 
       const indent = line.match(/^\s*/)?.[0] ?? "";
+      pushFormatDecision(decisions, { kind: "section", line: index + 1, text: trimmed });
       return `${indent}## ${trimmed}`;
     })
     .join("\n");
 }
 
-function quoteArticleInsightLines(text) {
+function quoteArticleInsightLines(text, decisions = null) {
   const insightPattern = /^(我的结论|我的判断|核心观点|核心判断|核心结论|重点结论|最终判断|一句话|一句话总结|总结|判断|结论)([：:])\s*(.+)$/u;
   const explicitQuotePattern = /^(引用|摘录|原文|Quote)([：:])\s*(.+)$/iu;
   const quotedSentencePattern = /^[“「『].+[”」』]$/u;
 
   return String(text ?? "")
     .split("\n")
-    .map((line) => {
+    .map((line, index) => {
       const indent = line.match(/^\s*/)?.[0] ?? "";
       const body = line.slice(indent.length).trim();
       if (!body || body.startsWith(">")) return line;
 
       const insight = insightPattern.exec(body);
       if (insight) {
+        pushFormatDecision(decisions, {
+          kind: "quote",
+          line: index + 1,
+          text: `${insight[1]}${insight[2]} ${insight[3]}`,
+        });
         return `${indent}> **${insight[1]}${insight[2]}** ${insight[3]}`;
       }
 
       const quote = explicitQuotePattern.exec(body);
       if (quote) {
+        pushFormatDecision(decisions, { kind: "quote", line: index + 1, text: quote[3] });
         return `${indent}> ${quote[3]}`;
       }
 
       if (quotedSentencePattern.test(body)) {
+        pushFormatDecision(decisions, { kind: "quote", line: index + 1, text: body });
         return `${indent}> ${body}`;
       }
 
@@ -377,27 +446,28 @@ function quoteArticleInsightLines(text) {
     .join("\n");
 }
 
-function emphasizeArticleLeadLines(text) {
+function emphasizeArticleLeadLines(text, decisions = null) {
   return String(text ?? "")
     .split("\n")
-    .map((line) => {
+    .map((line, index) => {
       const indent = line.match(/^\s*/)?.[0] ?? "";
       const body = line.slice(indent.length).trim();
       if (!body || body.startsWith(">") || body.startsWith("#") || body.startsWith("**")) return line;
       if (/^([-*+]|\d{1,2}[.、])\s+/.test(body)) return line;
       if (!/[：:]$/.test(body) || Array.from(body).length > 38) return line;
 
+      pushFormatDecision(decisions, { kind: "lead", line: index + 1, text: body });
       return `${indent}**${body}**`;
     })
     .join("\n");
 }
 
-function emphasizeArticleFieldLabels(text) {
+function emphasizeArticleFieldLabels(text, decisions = null) {
   const labelPattern = /^(网址|链接|官网|作者|来源|推荐理由|理由|推荐|亮点|优点|缺点|适合|场景|用法|功能|特点|备注|价格|名称|平台|关键词|标签|总结|结论|一句话)([：:])\s+(.+)$/u;
 
   return String(text ?? "")
     .split("\n")
-    .map((line) => {
+    .map((line, index) => {
       const indent = line.match(/^\s*/)?.[0] ?? "";
       const body = line.slice(indent.length);
       if (/^\*\*[^*\n]+[：:]\*\*/u.test(body)) return line;
@@ -405,17 +475,19 @@ function emphasizeArticleFieldLabels(text) {
       const match = labelPattern.exec(body);
       if (!match) return line;
 
+      pushFormatDecision(decisions, { kind: "field", line: index + 1, text: `${match[1]}${match[2]}` });
       return `${indent}**${match[1]}${match[2]}** ${match[3]}`;
     })
     .join("\n");
 }
 
-function emphasizeArticleInlineHighlights(text) {
+function emphasizeArticleInlineHighlights(text, decisions = null) {
   return String(text ?? "")
     .split("\n")
-    .map((line) => {
+    .map((line, index) => {
       const trimmed = line.trim();
       if (!trimmed || /^#{1,6}\s/.test(trimmed)) return line;
+      const reportInlineDecisions = !/^>\s+/.test(trimmed);
 
       return withProtectedInlineMarkdown(line, (source) => {
         let output = source;
@@ -433,14 +505,26 @@ function emphasizeArticleInlineHighlights(text) {
         ];
 
         for (const phrase of phrases) {
-          output = output.replace(new RegExp(escapeRegExp(phrase), "g"), `**${phrase}**`);
+          output = output.replace(new RegExp(escapeRegExp(phrase), "g"), (value) => {
+            if (reportInlineDecisions) {
+              pushFormatDecision(decisions, { kind: "inline", line: index + 1, text: value });
+            }
+            return `**${value}**`;
+          });
         }
 
         for (const term of ["AI", "Agent", "ChatGPT", "Claude", "Gemini", "Cursor", "DeepSeek", "OpenAI"]) {
-          output = emphasizeAsciiTerm(output, term);
+          output = emphasizeAsciiTerm(output, term, reportInlineDecisions ? (value) => {
+            pushFormatDecision(decisions, { kind: "inline", line: index + 1, text: value });
+          } : null);
         }
 
-        output = output.replace(/(关键|重点|核心|问题|结论)(?=[是：:在])/gu, "**$1**");
+        output = output.replace(/(关键|重点|核心|问题|结论)(?=[是：:在])/gu, (value) => {
+          if (reportInlineDecisions) {
+            pushFormatDecision(decisions, { kind: "inline", line: index + 1, text: value });
+          }
+          return `**${value}**`;
+        });
         return output;
       });
     })
@@ -458,22 +542,31 @@ function withProtectedInlineMarkdown(line, transform) {
   return transform(source).replace(/@@XMDINLINE(\d+)@@/g, (_match, index) => protectedSegments[Number(index)] ?? "");
 }
 
-function emphasizeAsciiTerm(text, term) {
+function emphasizeAsciiTerm(text, term, onMatch = null) {
   const pattern = new RegExp(`(^|[^A-Za-z0-9])(${escapeRegExp(term)})(?=$|[^A-Za-z0-9])`, "g");
-  return String(text ?? "").replace(pattern, (_match, prefix, value) => `${prefix}**${value}**`);
+  return String(text ?? "").replace(pattern, (_match, prefix, value) => {
+    if (onMatch) onMatch(value);
+    return `${prefix}**${value}**`;
+  });
 }
 
-function linkifyBareArticleLinks(text) {
+function linkifyBareArticleLinks(text, decisions = null) {
   const bareLinkPattern = /(^|[\s([（【「『])((?:https?:\/\/|www\.)?[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+(?:\:\d+)?(?:\/[^\s<>()\[\]{}"'，。！？；、]*)?)/gi;
 
   return String(text ?? "")
     .split("\n")
-    .map((line) => {
+    .map((line, index) => {
       if (line.includes("](") || line.includes("`") || /<a\b/i.test(line)) return line;
 
       return line.replace(bareLinkPattern, (match, prefix, rawLink) => {
         const normalized = normalizeArticleBareLink(rawLink);
         if (!normalized) return match;
+        pushFormatDecision(decisions, {
+          href: normalized.href,
+          kind: "link",
+          line: index + 1,
+          text: normalized.label,
+        });
         return `${prefix}[${normalized.label}](${normalized.href})${normalized.trailing}`;
       });
     })
