@@ -585,8 +585,11 @@ input {
 }
 
 .article-preview h2 {
-  margin: 34px 0 12px;
+  margin: 36px 0 14px;
+  padding-left: 13px;
+  border-left: 4px solid var(--accent);
   font-size: 23px;
+  font-weight: 800;
   line-height: 1.25;
 }
 
@@ -606,6 +609,11 @@ input {
 .article-preview a {
   color: var(--blue);
   text-decoration-thickness: 1px;
+}
+
+.article-preview strong,
+.article-preview ol > li::marker {
+  font-weight: 800;
 }
 
 .article-preview blockquote {

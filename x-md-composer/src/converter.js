@@ -292,13 +292,119 @@ export function prepareArticleMarkdown(markdown) {
 }
 
 export function markdownToArticleHtml(markdown) {
-  const html = marked.parse(prepareArticleMarkdown(markdown), {
+  const html = marked.parse(formatArticleMarkdownForHtml(markdown), {
     async: false,
-    breaks: false,
+    breaks: true,
     gfm: true,
   });
 
   return sanitizeArticleHtml(String(html)).trim();
+}
+
+function formatArticleMarkdownForHtml(markdown) {
+  let text = prepareArticleMarkdown(markdown);
+  const codeBlocks = [];
+
+  text = replaceFencedCodeBlocks(text, ({ raw }) => {
+    const index = codeBlocks.push(raw) - 1;
+    return `@@ARTICLEHTMLCODEBLOCK${index}@@`;
+  });
+
+  text = promoteNumberedArticleSections(text);
+  text = emphasizeArticleFieldLabels(text);
+  text = linkifyBareArticleLinks(text);
+  text = text.replace(/@@ARTICLEHTMLCODEBLOCK(\d+)@@/g, (_match, index) => codeBlocks[Number(index)] ?? "");
+
+  return text.trim();
+}
+
+function promoteNumberedArticleSections(text) {
+  const lines = String(text ?? "").split("\n");
+
+  return lines
+    .map((line, index) => {
+      const trimmed = line.trim();
+      const match = /^(\d{1,2}[.、]\s+)(.{2,80})$/.exec(trimmed);
+      if (!match) return line;
+
+      const previousIsBoundary = index === 0 || lines[index - 1].trim() === "";
+      const nextContent = nextNonEmptyLine(lines, index + 1);
+      const nextIsSibling = /^\d{1,2}[.、]\s+/.test(nextContent);
+      const nextIsListItem = /^[-*+]\s+/.test(nextContent);
+      const titleLooksLikeSentence = /[。！？!?]$/.test(match[2].trim());
+
+      if (!previousIsBoundary || !nextContent || nextIsSibling || nextIsListItem || titleLooksLikeSentence) {
+        return line;
+      }
+
+      const indent = line.match(/^\s*/)?.[0] ?? "";
+      return `${indent}## ${trimmed}`;
+    })
+    .join("\n");
+}
+
+function emphasizeArticleFieldLabels(text) {
+  const labelPattern = /^(网址|链接|官网|作者|来源|推荐理由|推荐|亮点|适合|用法|备注|价格|名称|平台|关键词|标签|总结|结论|一句话)([：:])\s+(.+)$/u;
+
+  return String(text ?? "")
+    .split("\n")
+    .map((line) => {
+      const indent = line.match(/^\s*/)?.[0] ?? "";
+      const body = line.slice(indent.length);
+      if (/^\*\*[^*\n]+[：:]\*\*/u.test(body)) return line;
+
+      const match = labelPattern.exec(body);
+      if (!match) return line;
+
+      return `${indent}**${match[1]}${match[2]}** ${match[3]}`;
+    })
+    .join("\n");
+}
+
+function linkifyBareArticleLinks(text) {
+  const bareLinkPattern = /(^|[\s([（【「『])((?:https?:\/\/|www\.)?[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+(?:\:\d+)?(?:\/[^\s<>()\[\]{}"'，。！？；、]*)?)/gi;
+
+  return String(text ?? "")
+    .split("\n")
+    .map((line) => {
+      if (line.includes("](") || line.includes("`") || /<a\b/i.test(line)) return line;
+
+      return line.replace(bareLinkPattern, (match, prefix, rawLink) => {
+        const normalized = normalizeArticleBareLink(rawLink);
+        if (!normalized) return match;
+        return `${prefix}[${normalized.label}](${normalized.href})${normalized.trailing}`;
+      });
+    })
+    .join("\n");
+}
+
+function normalizeArticleBareLink(rawLink) {
+  const source = String(rawLink ?? "");
+  const trailing = /[.,!?;:，。！？；：、]+$/u.exec(source)?.[0] ?? "";
+  const label = trailing ? source.slice(0, -trailing.length) : source;
+  const href = /^https?:\/\//i.test(label) ? label : `https://${label}`;
+
+  try {
+    const parsed = new URL(href);
+    if (!/\.[A-Za-z]{2,}$/i.test(parsed.hostname)) return null;
+  } catch {
+    return null;
+  }
+
+  return {
+    href,
+    label,
+    trailing,
+  };
+}
+
+function nextNonEmptyLine(lines, startIndex) {
+  for (let index = startIndex; index < lines.length; index += 1) {
+    const trimmed = lines[index].trim();
+    if (trimmed) return trimmed;
+  }
+
+  return "";
 }
 
 export function convertMarkdown(markdown, userOptions = {}) {

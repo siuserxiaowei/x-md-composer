@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cleanMarkdown, convertLongform, convertMarkdown, readFrontmatter } from "../src/converter.js";
+import { cleanMarkdown, convertLongform, convertMarkdown, markdownToArticleHtml, readFrontmatter } from "../src/converter.js";
 
 const cleaned = cleanMarkdown(`# Title
 
@@ -76,6 +76,20 @@ assert.equal(article.assets.codeBlocks.length, 1);
 assert.equal(article.assets.codeBlocks[0].code, 'console.log("hello");');
 assert.equal(article.assets.codeBlocks[0].safeLabel, "code-block-1-js");
 assert.equal(article.assets.codeBlocks[0].suggestedFilename, "code-block-1-js.js");
+
+const formattedArticleHtml = markdownToArticleHtml(`最近有个很明显的感觉：
+微信群消息看不过来，朋友圈看不过来。
+
+1. 卡兹克的 AIHOT
+
+网址： aihot.virxact.com
+`);
+
+assert.equal(formattedArticleHtml.includes("最近有个很明显的感觉：<br>"), true);
+assert.equal(formattedArticleHtml.includes("<h2>1. 卡兹克的 AIHOT</h2>"), true);
+assert.equal(formattedArticleHtml.includes("<strong>网址：</strong>"), true);
+assert.equal(formattedArticleHtml.includes('href="https://aihot.virxact.com"'), true);
+assert.equal(formattedArticleHtml.includes(">aihot.virxact.com</a>"), true);
 
 const articleWithMeta = convertLongform(`---
 title: Article From Frontmatter
