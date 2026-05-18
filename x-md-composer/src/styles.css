@@ -830,6 +830,131 @@ input {
   overflow-wrap: anywhere;
 }
 
+.format-report {
+  display: grid;
+  gap: 9px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.format-report-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.format-report-head h3 {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.format-report-head > span {
+  flex: 0 0 auto;
+  min-height: 24px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.format-report p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.format-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.format-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  min-width: 0;
+  padding: 4px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.format-chip strong {
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.format-chip span {
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
+.format-chip.is-empty {
+  background: var(--panel-soft);
+  color: var(--muted);
+}
+
+.format-chip.is-empty span {
+  color: var(--muted);
+}
+
+.format-decisions {
+  display: grid;
+  gap: 0;
+  margin: 1px 0 0;
+  padding: 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+
+.format-decisions li {
+  display: grid;
+  grid-template-columns: 38px 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(221, 228, 235, 0.72);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.format-line {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.format-kind {
+  color: var(--accent-strong);
+  font-weight: 760;
+}
+
+.format-text {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.format-empty {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .publish-block {
   display: grid;
   gap: 10px;
@@ -1310,6 +1435,29 @@ input {
   .publish-brief {
     align-items: stretch;
     grid-template-columns: 1fr;
+  }
+
+  .format-report-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .format-report-head > span {
+    align-self: flex-start;
+  }
+
+  .format-chip {
+    white-space: normal;
+  }
+
+  .format-decisions li {
+    grid-template-columns: 34px 52px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .format-text {
+    overflow-wrap: anywhere;
+    white-space: normal;
   }
 
   .asset-summary {
