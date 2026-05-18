@@ -311,7 +311,10 @@ function formatArticleMarkdownForHtml(markdown) {
   });
 
   text = promoteNumberedArticleSections(text);
+  text = quoteArticleInsightLines(text);
+  text = emphasizeArticleLeadLines(text);
   text = emphasizeArticleFieldLabels(text);
+  text = emphasizeArticleInlineHighlights(text);
   text = linkifyBareArticleLinks(text);
   text = text.replace(/@@ARTICLEHTMLCODEBLOCK(\d+)@@/g, (_match, index) => codeBlocks[Number(index)] ?? "");
 
@@ -343,8 +346,54 @@ function promoteNumberedArticleSections(text) {
     .join("\n");
 }
 
+function quoteArticleInsightLines(text) {
+  const insightPattern = /^(我的结论|我的判断|核心观点|核心判断|核心结论|重点结论|最终判断|一句话|一句话总结|总结|判断|结论)([：:])\s*(.+)$/u;
+  const explicitQuotePattern = /^(引用|摘录|原文|Quote)([：:])\s*(.+)$/iu;
+  const quotedSentencePattern = /^[“「『].+[”」』]$/u;
+
+  return String(text ?? "")
+    .split("\n")
+    .map((line) => {
+      const indent = line.match(/^\s*/)?.[0] ?? "";
+      const body = line.slice(indent.length).trim();
+      if (!body || body.startsWith(">")) return line;
+
+      const insight = insightPattern.exec(body);
+      if (insight) {
+        return `${indent}> **${insight[1]}${insight[2]}** ${insight[3]}`;
+      }
+
+      const quote = explicitQuotePattern.exec(body);
+      if (quote) {
+        return `${indent}> ${quote[3]}`;
+      }
+
+      if (quotedSentencePattern.test(body)) {
+        return `${indent}> ${body}`;
+      }
+
+      return line;
+    })
+    .join("\n");
+}
+
+function emphasizeArticleLeadLines(text) {
+  return String(text ?? "")
+    .split("\n")
+    .map((line) => {
+      const indent = line.match(/^\s*/)?.[0] ?? "";
+      const body = line.slice(indent.length).trim();
+      if (!body || body.startsWith(">") || body.startsWith("#") || body.startsWith("**")) return line;
+      if (/^([-*+]|\d{1,2}[.、])\s+/.test(body)) return line;
+      if (!/[：:]$/.test(body) || Array.from(body).length > 38) return line;
+
+      return `${indent}**${body}**`;
+    })
+    .join("\n");
+}
+
 function emphasizeArticleFieldLabels(text) {
-  const labelPattern = /^(网址|链接|官网|作者|来源|推荐理由|推荐|亮点|适合|用法|备注|价格|名称|平台|关键词|标签|总结|结论|一句话)([：:])\s+(.+)$/u;
+  const labelPattern = /^(网址|链接|官网|作者|来源|推荐理由|理由|推荐|亮点|优点|缺点|适合|场景|用法|功能|特点|备注|价格|名称|平台|关键词|标签|总结|结论|一句话)([：:])\s+(.+)$/u;
 
   return String(text ?? "")
     .split("\n")
@@ -359,6 +408,59 @@ function emphasizeArticleFieldLabels(text) {
       return `${indent}**${match[1]}${match[2]}** ${match[3]}`;
     })
     .join("\n");
+}
+
+function emphasizeArticleInlineHighlights(text) {
+  return String(text ?? "")
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || /^#{1,6}\s/.test(trimmed)) return line;
+
+      return withProtectedInlineMarkdown(line, (source) => {
+        let output = source;
+        const phrases = [
+          "高质量信息源",
+          "全网热点",
+          "产品和工具",
+          "自动整理",
+          "筛选和整理",
+          "实时更新",
+          "AI 日报",
+          "新模型",
+          "新工具",
+          "新玩法",
+        ];
+
+        for (const phrase of phrases) {
+          output = output.replace(new RegExp(escapeRegExp(phrase), "g"), `**${phrase}**`);
+        }
+
+        for (const term of ["AI", "Agent", "ChatGPT", "Claude", "Gemini", "Cursor", "DeepSeek", "OpenAI"]) {
+          output = emphasizeAsciiTerm(output, term);
+        }
+
+        output = output.replace(/(关键|重点|核心|问题|结论)(?=[是：:在])/gu, "**$1**");
+        return output;
+      });
+    })
+    .join("\n");
+}
+
+function withProtectedInlineMarkdown(line, transform) {
+  const protectedSegments = [];
+  const tokenPattern = /`[^`\n]+`|!\[[^\]\n]*\]\([^)]+\)|\[[^\]\n]+\]\([^)]+\)|\*\*[^*\n]+\*\*|__[^_\n]+__/g;
+  const source = String(line ?? "").replace(tokenPattern, (segment) => {
+    const index = protectedSegments.push(segment) - 1;
+    return `@@XMDINLINE${index}@@`;
+  });
+
+  return transform(source).replace(/@@XMDINLINE(\d+)@@/g, (_match, index) => protectedSegments[Number(index)] ?? "");
+}
+
+function emphasizeAsciiTerm(text, term) {
+  const pattern = new RegExp(`(^|[^A-Za-z0-9])(${escapeRegExp(term)})(?=$|[^A-Za-z0-9])`, "g");
+  return String(text ?? "").replace(pattern, (_match, prefix, value) => `${prefix}**${value}**`);
 }
 
 function linkifyBareArticleLinks(text) {

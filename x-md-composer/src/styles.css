@@ -617,10 +617,16 @@ input {
 }
 
 .article-preview blockquote {
-  border-left: 3px solid var(--accent);
-  padding: 4px 0 4px 15px;
-  color: #4d5b63;
-  background: #f7faf9;
+  margin: 22px 0;
+  border-left: 4px solid var(--accent);
+  padding: 10px 0 10px 16px;
+  color: #2c3a40;
+  background: #f5faf8;
+  font-size: 18px;
+}
+
+.article-preview blockquote p {
+  margin: 0;
 }
 
 .article-preview code,
